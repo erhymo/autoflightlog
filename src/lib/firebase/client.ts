@@ -8,8 +8,13 @@ export type FirebaseClient = {
   db: Firestore;
 };
 
-function getRequiredEnv(name: string): string {
-  const value = process.env[name];
+/**
+ * NOTE: This file is used from client components.
+ * In Next.js, `process.env.NEXT_PUBLIC_*` values are inlined at build time.
+ * Dynamic access like `process.env[name]` will NOT be inlined and will be
+ * undefined in the browser.
+ */
+function requireEnv(value: string | undefined, name: string): string {
   if (!value) {
     throw new Error(
       `Missing env var ${name}. Add it to .env.local (dev) and Vercel Environment Variables (prod).`
@@ -20,12 +25,15 @@ function getRequiredEnv(name: string): string {
 
 function getFirebaseConfig() {
   return {
-    apiKey: getRequiredEnv("NEXT_PUBLIC_FIREBASE_API_KEY"),
-    authDomain: getRequiredEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-    projectId: getRequiredEnv("NEXT_PUBLIC_FIREBASE_PROJECT_ID"),
-    storageBucket: getRequiredEnv("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"),
-    messagingSenderId: getRequiredEnv("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
-    appId: getRequiredEnv("NEXT_PUBLIC_FIREBASE_APP_ID"),
+    apiKey: requireEnv(process.env.NEXT_PUBLIC_FIREBASE_API_KEY, "NEXT_PUBLIC_FIREBASE_API_KEY"),
+    authDomain: requireEnv(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
+    projectId: requireEnv(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, "NEXT_PUBLIC_FIREBASE_PROJECT_ID"),
+    storageBucket: requireEnv(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"),
+    messagingSenderId: requireEnv(
+      process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"
+    ),
+    appId: requireEnv(process.env.NEXT_PUBLIC_FIREBASE_APP_ID, "NEXT_PUBLIC_FIREBASE_APP_ID"),
     // measurementId is optional; we intentionally don't initialize Analytics here.
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
   } as const;
