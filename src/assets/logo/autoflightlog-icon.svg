@@ -1,0 +1,17 @@
+<svg width="100" height="80" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left Wing -->
+  <path d="M 5 40 Q 20 35 35 38 L 38 42 Q 23 40 8 44 Z" fill="#0F2A44" opacity="0.8"/>
+  
+  <!-- Right Wing -->
+  <path d="M 62 38 Q 77 35 95 40 L 92 44 Q 77 40 65 42 Z" fill="#0F2A44" opacity="0.8"/>
+  
+  <!-- Wing Swoosh (Light Blue) -->
+  <path d="M 15 32 Q 50 25 85 32 Q 50 28 15 32 Z" fill="#38BDF8" opacity="0.6"/>
+  
+  <!-- Letter A - Main Body -->
+  <path d="M 42 20 L 58 65 L 52 65 L 50 55 L 42 55 L 40 65 L 34 65 L 42 20 Z M 43 50 L 49 50 L 46 32 Z" fill="#0F2A44"/>
+  
+  <!-- Letter A - Crossbar Enhancement -->
+  <rect x="42" y="48" width="8" height="3" fill="#0F2A44"/>
+</svg>
+
