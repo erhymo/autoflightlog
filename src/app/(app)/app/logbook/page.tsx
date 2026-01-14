@@ -6,7 +6,7 @@ import { listEntries, upsertEntry, getView, deleteEntry } from "@/lib/repo/fires
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
-import { EASA_LOGBOOK_LAYOUT } from "@/lib/layouts/easaLogbookLayout";
+import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 
 function nowIso() {
   return new Date().toISOString();
@@ -65,20 +65,22 @@ export default function LogbookPage() {
     await refresh();
   }
 
-	  // Determine which fields are currently active/visible according to the view
-	  const activeFieldIds = useMemo(() => {
-	    const ids = new Set<string>();
-	    if (view?.columns && view.columns.length > 0) {
-	      for (const col of view.columns) ids.add(col.fieldId);
-	    } else if (view?.visibleFields && view.visibleFields.length > 0) {
-	      for (const id of view.visibleFields) ids.add(id);
-	    }
-	    // Fallback: if nothing is configured, fall back to all known fields
-	    if (ids.size === 0) {
-	      for (const f of FIELD_CATALOG) ids.add(f.id);
-	    }
-	    return ids;
-	  }, [view]);
+		  // Determine which fields are currently active/visible according to the view.
+		  // For now we always include all EASA fields so the logbook table matches
+		  // the full EASA layout, regardless of how the view was previously saved.
+		  const activeFieldIds = useMemo(() => {
+		    const ids = new Set<string>();
+		    if (view?.columns && view.columns.length > 0) {
+		      for (const col of view.columns) ids.add(col.fieldId);
+		    } else if (view?.visibleFields && view.visibleFields.length > 0) {
+		      for (const id of view.visibleFields) ids.add(id);
+		    }
+		    // Always ensure that all known EASA fields are present so the layout is complete
+		    for (const fieldId of EASA_FIELD_ORDER) ids.add(fieldId);
+		    // And as a safety net, include any remaining catalog fields
+		    for (const f of FIELD_CATALOG) ids.add(f.id);
+		    return ids;
+		  }, [view]);
 
 	  // Build EASA-style layout filtered by the active fields
 	  const displayedGroups = useMemo(() => {
