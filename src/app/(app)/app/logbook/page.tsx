@@ -16,16 +16,26 @@ export default function LogbookPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
   const [view, setView] = useState<ViewDefinition | null>(null);
   const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   async function refresh() {
-    const [entriesData, viewData] = await Promise.all([
-      listEntries(),
-      getView("view_default"),
-    ]);
-    setEntries(entriesData);
-    setView(viewData);
-    setLoading(false);
+		try {
+			setLoadError(null);
+			const [entriesData, viewData] = await Promise.all([
+				listEntries(),
+				getView("view_default"),
+			]);
+			setEntries(entriesData);
+			setView(viewData);
+		} catch (err) {
+			console.error("Logbook load failed", err);
+			const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+			const message = err instanceof Error ? err.message : String(err);
+			setLoadError(code ? `${code}: ${message}` : message);
+		} finally {
+			setLoading(false);
+		}
   }
 
   useEffect(() => {
@@ -61,6 +71,20 @@ export default function LogbookPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="p-6 md:p-8">
+				<h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
+					Logbook
+				</h1>
+				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
+					<p className="text-sm font-medium text-red-900">Kunne ikke laste loggbok.</p>
+					<p className="text-sm text-red-700 mt-1">{loadError}</p>
+				</div>
+			</div>
+		);
+	}
 
   if (!view || !view.columns || view.columns.length === 0) {
     return (

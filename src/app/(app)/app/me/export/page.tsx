@@ -16,6 +16,7 @@ export default function ExportPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
   const [view, setView] = useState<ViewDefinition | null>(null);
   const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
   
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [includeAllFields, setIncludeAllFields] = useState(false);
@@ -25,18 +26,36 @@ export default function ExportPage() {
   const [showEmailSection, setShowEmailSection] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const [entriesData, viewData] = await Promise.all([
-        listEntries(),
-        getView("view_default"),
-      ]);
-      setEntries(entriesData.sort((a, b) => 
-        new Date(b.values.date || b.createdAt).getTime() - 
-        new Date(a.values.date || a.createdAt).getTime()
-      ));
-      setView(viewData);
-      setLoading(false);
-    })();
+		let cancelled = false;
+		(async () => {
+			try {
+				setLoadError(null);
+				const [entriesData, viewData] = await Promise.all([
+					listEntries(),
+					getView("view_default"),
+				]);
+				if (cancelled) return;
+				setEntries(
+					entriesData.sort(
+						(a, b) =>
+							new Date(b.values.date || b.createdAt).getTime() -
+							new Date(a.values.date || a.createdAt).getTime()
+					)
+				);
+				setView(viewData);
+			} catch (err) {
+				console.error("Export load failed", err);
+				if (cancelled) return;
+				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+				const message = err instanceof Error ? err.message : String(err);
+				setLoadError(code ? `${code}: ${message}` : message);
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
   }, []);
 
   function getSelectedEntries(): LogbookEntry[] {
@@ -112,6 +131,20 @@ export default function ExportPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="p-6 md:p-8">
+				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
+					<p className="text-sm font-medium text-red-900">Kunne ikke laste data for eksport.</p>
+					<p className="text-sm text-red-700 mt-1">{loadError}</p>
+					<button className="mt-3 text-sm underline" onClick={() => router.push("/app/logbook")}>
+						Gå til Logbook
+					</button>
+				</div>
+			</div>
+		);
+	}
 
   const selectedEntries = getSelectedEntries();
   const estimatedPages = format === "pdf" 

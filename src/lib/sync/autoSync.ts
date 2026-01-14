@@ -1,4 +1,4 @@
-import { listConnectors, runMockSync } from "@/lib/repo/mockRepos";
+import { listConnectors, runMockSync } from "@/lib/repo/firestoreRepos";
 
 export type AutoSyncReason = "startup" | "timer" | "online" | "focus" | "visibility" | "sw";
 

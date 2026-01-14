@@ -16,27 +16,43 @@ export default function EditEntryPage() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [allEntries, setAllEntries] = useState<LogbookEntry[]>([]);
   const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      const entryData = await getEntry(entryId);
-      if (!entryData) {
-        alert("Entry not found");
-        router.push("/app/logbook");
-        return;
-      }
+		let cancelled = false;
+		async function load() {
+			try {
+				setLoadError(null);
+				const entryData = await getEntry(entryId);
+				if (!entryData) {
+					alert("Entry not found");
+					router.push("/app/logbook");
+					return;
+				}
 
-      const [templateData, entriesData] = await Promise.all([
-        getTemplate(entryData.templateId),
-        listEntries(),
-      ]);
-      setEntry(entryData);
-      setTemplate(templateData);
-      setAllEntries(entriesData);
-      setLoading(false);
-    }
-    load();
+				const [templateData, entriesData] = await Promise.all([
+					getTemplate(entryData.templateId),
+					listEntries(),
+				]);
+				if (cancelled) return;
+				setEntry(entryData);
+				setTemplate(templateData);
+				setAllEntries(entriesData);
+			} catch (err) {
+				console.error("Edit entry load failed", err);
+				if (cancelled) return;
+				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+				const message = err instanceof Error ? err.message : String(err);
+				setLoadError(code ? `${code}: ${message}` : message);
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		}
+		load();
+		return () => {
+			cancelled = true;
+		};
   }, [entryId, router]);
 
   function handleFieldChange(fieldKey: string, value: any) {
@@ -82,6 +98,14 @@ export default function EditEntryPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="p-6">
+				<p className="text-red-600">Failed to load entry: {loadError}</p>
+			</div>
+		);
+	}
 
   if (!entry || !template) {
     return (

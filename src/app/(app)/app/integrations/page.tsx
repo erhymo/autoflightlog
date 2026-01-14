@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId, runMockSync } from "@/lib/repo/mockRepos";
+import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId, runMockSync } from "@/lib/repo/firestoreRepos";
 
 interface IntegrationRequest {
   id: string;
@@ -51,22 +51,32 @@ export default function IntegrationsPage() {
   const [crewId, setCrewId] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<RequestWithConnector | null>(null);
   const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{ connectorId: string; inserted: number; updated: number } | null>(null);
 
   async function loadRequests() {
-    const data = await listIntegrationRequests();
+		try {
+			setLoadError(null);
+			const data = await listIntegrationRequests();
 
-    // Enrich requests with connector data
-    const enriched = await Promise.all(
-      data.map(async (req: any) => {
-        const connector = await getConnectorByRequestId(req.id);
-        return { ...req, connector };
-      })
-    );
+			// Enrich requests with connector data
+			const enriched = await Promise.all(
+				data.map(async (req: any) => {
+					const connector = await getConnectorByRequestId(req.id);
+					return { ...req, connector };
+				})
+			);
 
-    setRequests(enriched as RequestWithConnector[]);
-    setLoading(false);
+			setRequests(enriched as RequestWithConnector[]);
+		} catch (err) {
+			console.error("Integrations load failed", err);
+			const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+			const message = err instanceof Error ? err.message : String(err);
+			setLoadError(code ? `${code}: ${message}` : message);
+		} finally {
+			setLoading(false);
+		}
   }
 
   useEffect(() => {
@@ -160,6 +170,20 @@ export default function IntegrationsPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="p-6 md:p-8">
+				<h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
+					Integrations
+				</h1>
+				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
+					<p className="text-sm font-medium text-red-900">Kunne ikke laste integrasjoner.</p>
+					<p className="text-sm text-red-700 mt-1">{loadError}</p>
+				</div>
+			</div>
+		);
+	}
 
   return (
     <div className="p-6 md:p-8 space-y-6">

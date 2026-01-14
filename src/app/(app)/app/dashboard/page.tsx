@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listEntries } from "@/lib/repo/firestoreRepos";
-import { listConnectors } from "@/lib/repo/mockRepos";
+import { listEntries, listConnectors } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry } from "@/types/domain";
 import { calculateCurrencySummary } from "@/lib/currency/currency";
 
@@ -22,17 +21,33 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
 	const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
   const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const [entriesData, connectorsData] = await Promise.all([
-        listEntries(),
-        listConnectors(),
-      ]);
-      setEntries(entriesData);
-      setConnectors(connectorsData);
-      setLoading(false);
-    })();
+		let cancelled = false;
+		(async () => {
+			try {
+				setLoadError(null);
+				const [entriesData, connectorsData] = await Promise.all([
+					listEntries(),
+					listConnectors(),
+				]);
+				if (cancelled) return;
+				setEntries(entriesData);
+				setConnectors(connectorsData);
+			} catch (err) {
+				console.error("Dashboard load failed", err);
+				if (cancelled) return;
+				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+				const message = err instanceof Error ? err.message : String(err);
+				setLoadError(code ? `${code}: ${message}` : message);
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
   }, []);
 
   if (loading) {
@@ -43,6 +58,21 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="p-6">
+				<h1 className="text-xl font-semibold text-gray-900 mb-4">Dashboard</h1>
+				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
+					<p className="text-sm font-medium text-red-900">Kunne ikke laste data.</p>
+					<p className="text-sm text-red-700 mt-1">{loadError}</p>
+					<p className="text-xs text-red-700 mt-2">
+						Tips: dette skyldes ofte Firestore "Missing or insufficient permissions" (regler) eller at du ikke er logget inn.
+					</p>
+				</div>
+			</div>
+		);
+	}
 
   // Calculate totals
 	const totalFlightMinutes = entries.reduce((sum, e) => sum + (Number(e.values.totalTime) || 0), 0);

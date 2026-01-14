@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
-import { upsertTemplate, upsertView, getUserFlags, setUserFlags } from "@/lib/repo/mockRepos";
+import { upsertTemplate, upsertView, getUserFlags, setUserFlags } from "@/lib/repo/firestoreRepos";
 import { FieldType } from "@/types/domain";
 
 function nowIso() {

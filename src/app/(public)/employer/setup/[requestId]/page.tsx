@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { listIntegrationRequests, upsertConnector, getConnectorByRequestId, runMockSync } from "@/lib/repo/mockRepos";
+import Link from "next/link";
+import { useAuthUser } from "@/lib/firebase/useAuthUser";
+import { listIntegrationRequests, upsertConnector, getConnectorByRequestId, runMockSync } from "@/lib/repo/firestoreRepos";
 
 interface IntegrationRequest {
   id: string;
@@ -38,10 +40,13 @@ export default function EmployerSetupPage() {
   const params = useParams();
   const requestId = params.requestId as string;
 
+  const { user, loading: authLoading, error: authError } = useAuthUser();
+
   const [request, setRequest] = useState<IntegrationRequest | null>(null);
   const [connector, setConnector] = useState<Connector | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+	const [loadError, setLoadError] = useState<string | null>(null);
 
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [authType, setAuthType] = useState<"api_key" | "bearer_token">("api_key");
@@ -49,32 +54,89 @@ export default function EmployerSetupPage() {
   const [syncResult, setSyncResult] = useState<{ inserted: number; updated: number } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  async function loadData() {
-    const requests = await listIntegrationRequests();
-    const found = requests.find((r: any) => r.id === requestId);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
 
-    if (!found) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
+    (async () => {
+			try {
+				setLoadError(null);
+				setNotFound(false);
+				const requests = await listIntegrationRequests();
+				const found = requests.find((r: any) => r.id === requestId);
 
-    setRequest(found as IntegrationRequest);
+				if (cancelled) return;
+				if (!found) {
+					setNotFound(true);
+					return;
+				}
 
-    const existingConnector = await getConnectorByRequestId(requestId);
-    if (existingConnector) {
-      setConnector(existingConnector);
-      setApiBaseUrl(existingConnector.apiBaseUrl);
-      setAuthType(existingConnector.authType);
-      setSecret(existingConnector.secret);
-    }
+				setRequest(found as IntegrationRequest);
 
-    setLoading(false);
+				const existingConnector = await getConnectorByRequestId(requestId);
+				if (cancelled) return;
+				if (existingConnector) {
+					setConnector(existingConnector);
+					setApiBaseUrl(existingConnector.apiBaseUrl);
+					setAuthType(existingConnector.authType);
+					setSecret(existingConnector.secret);
+				}
+			} catch (err) {
+				console.error("Employer setup load failed", err);
+				if (cancelled) return;
+				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+				const message = err instanceof Error ? err.message : String(err);
+				setLoadError(code ? `${code}: ${message}` : message);
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId, user]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
   }
 
-  useEffect(() => {
-    loadData();
-  }, [requestId]);
+  if (authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+        <div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
+          <h1 className="text-xl font-semibold text-red-900">Authentication Error</h1>
+          <p className="text-sm text-red-600 mt-2">{authError.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+        <div className="w-full max-w-2xl rounded-2xl border border-gray-200 p-6 bg-white">
+          <h1 className="text-xl font-semibold text-gray-900">Sign in required</h1>
+          <p className="text-sm text-gray-600 mt-2">
+            This setup page is tied to a pilot account. Please sign in to continue.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium"
+              style={{ backgroundColor: "var(--aviation-blue)", color: "white" }}
+            >
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function handleTestConnection() {
     if (!request) return;
@@ -152,6 +214,17 @@ export default function EmployerSetupPage() {
       </div>
     );
   }
+
+	if (loadError) {
+		return (
+			<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+				<div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
+					<h1 className="text-xl font-semibold text-red-900">Could not load setup</h1>
+					<p className="text-sm text-red-600 mt-2">{loadError}</p>
+				</div>
+			</div>
+		);
+	}
 
   if (notFound) {
     return (
