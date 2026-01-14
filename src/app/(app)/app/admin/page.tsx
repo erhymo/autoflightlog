@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
+import Link from "next/link";
 
 type AdminUser = {
   uid: string;
@@ -203,7 +204,13 @@ export default function AdminPage() {
               {filtered.map((u) => (
                 <tr key={u.uid} className="border-t" style={{ borderColor: "var(--border-default)" }}>
                   <td className="px-4 py-3" style={{ color: "var(--text-primary)" }}>
-                    {u.email || <span style={{ color: "var(--text-muted)" }}>—</span>}
+                    <Link
+                      href={`/app/admin/${u.uid}`}
+                      className="underline underline-offset-2"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {u.email || u.uid}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 font-mono" style={{ color: "var(--text-secondary)" }}>
                     {u.uid}
