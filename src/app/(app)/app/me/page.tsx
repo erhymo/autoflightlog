@@ -7,15 +7,26 @@ import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { upsertTemplate, upsertView, getUserFlags, setUserFlags } from "@/lib/repo/firestoreRepos";
 import { FieldType } from "@/types/domain";
+import { EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 
 function nowIso() {
   return new Date().toISOString();
 }
 
 export default function MyPage() {
-  const router = useRouter();
-  const [selected, setSelected] = useState<string[]>([]);
-  const catalog = useMemo(() => FIELD_CATALOG, []);
+	  const router = useRouter();
+	  const [selected, setSelected] = useState<string[]>([]);
+	  const catalog = useMemo(() => {
+	    // Sort catalog so it follows the same left-to-right order as the
+	    // EASA logbook layout, which makes Settings mirror the table.
+	    const orderIndex = new Map<string, number>();
+	    EASA_FIELD_ORDER.forEach((id, idx) => orderIndex.set(id, idx));
+	    return [...FIELD_CATALOG].sort((a, b) => {
+	      const ai = orderIndex.get(a.id) ?? 999;
+	      const bi = orderIndex.get(b.id) ?? 999;
+	      return ai - bi;
+	    });
+	  }, []);
 
   useEffect(() => {
     (async () => {

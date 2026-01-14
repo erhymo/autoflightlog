@@ -1,25 +1,18 @@
 import { View } from "@/types/domain";
+import { EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 
 export function buildDefaultView(nowIso: string, templateId: string): View {
   const timestamp = nowIso || new Date().toISOString();
 
-  const visibleFields = [
-    "date",
-    "departure",
-    "arrival",
-    "aircraft",
-    "registration",
-    "totalTime",
-    "picTime",
-    "landingsDay",
-    "landingsNight",
-  ];
+	  // Start with all known EASA fields in the EASA layout order. Users can
+	  // later trim this down in Settings.
+	  const visibleFields = [...EASA_FIELD_ORDER];
 
-  const columns = visibleFields.map((fieldId, index) => ({
-    fieldId,
-    width: 150,
-    order: index + 1,
-  }));
+	  const columns = visibleFields.map((fieldId, index) => ({
+	    fieldId,
+	    width: 140,
+	    order: index + 1,
+	  }));
 
   return {
     id: "view_default",
