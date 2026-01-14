@@ -118,7 +118,55 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.uid, isAdmin]);
 
-  if (!authLoading && user && !isAdmin) {
+  if (authLoading) {
+    return (
+      <div className="p-6 md:p-8">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+          Admin
+        </h1>
+        <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Checking access…
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-6 md:p-8">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+          Admin
+        </h1>
+        <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Please sign in to access this page.
+        </p>
+        <div className="mt-4">
+          <Link href="/login" className="underline underline-offset-2" style={{ color: "var(--text-primary)" }}>
+            Go to login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (adminAllowlist.length === 0) {
+    return (
+      <div className="p-6 md:p-8">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+          Admin
+        </h1>
+        <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Admin allowlist is not configured.
+        </p>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Set <span className="font-mono">ADMIN_EMAIL_ALLOWLIST</span> (server) and optionally
+          <span className="font-mono"> NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST</span> (client) to show this page.
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="p-6 md:p-8">
         <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
