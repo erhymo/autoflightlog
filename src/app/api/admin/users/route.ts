@@ -15,18 +15,31 @@ function jsonError(err: unknown) {
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
-    const { auth } = getFirebaseAdmin();
+    const { auth, db } = getFirebaseAdmin();
 
     const maxRaw = req.nextUrl.searchParams.get("max") ?? "200";
     const pageToken = req.nextUrl.searchParams.get("pageToken") ?? undefined;
     const max = Math.max(1, Math.min(500, Number(maxRaw) || 200));
 
     const res = await auth.listUsers(max, pageToken);
+
+    // Merge in admin metadata stored under `users/{uid}/meta/admin` (e.g. hidden flag)
+    const hiddenByUid = new Map<string, boolean>();
+    if (res.users.length > 0) {
+      const refs = res.users.map((u) => db.doc(`users/${u.uid}/meta/admin`));
+      const snaps = await db.getAll(...refs);
+      res.users.forEach((u, i) => {
+        const data = snaps[i]?.data() as any;
+        hiddenByUid.set(u.uid, Boolean(data?.hidden));
+      });
+    }
+
     return NextResponse.json({
       users: res.users.map((u) => ({
         uid: u.uid,
         email: u.email ?? null,
         disabled: Boolean(u.disabled),
+        hidden: hiddenByUid.get(u.uid) ?? false,
         displayName: u.displayName ?? null,
         photoURL: u.photoURL ?? null,
         providerIds: (u.providerData || []).map((p) => p.providerId),

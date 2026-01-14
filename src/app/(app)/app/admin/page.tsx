@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
+import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 
 type AdminUser = {
   uid: string;
   email: string | null;
   disabled: boolean;
+  hidden: boolean;
   displayName: string | null;
   photoURL: string | null;
   providerIds: string[];
@@ -16,6 +18,8 @@ type AdminUser = {
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuthUser();
+  const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
+  const isAdmin = emailInAllowlist(user?.email, adminAllowlist);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +75,21 @@ export default function AdminPage() {
     }
   }
 
+  async function setHidden(uid: string, hidden: boolean) {
+    setError(null);
+    try {
+      const res = await authedFetch(`/api/admin/users/${uid}`, {
+        method: "PATCH",
+        body: JSON.stringify({ hidden }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, hidden } : u)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function hardDelete(uid: string) {
     const typed = window.prompt(`Type the UID to permanently delete this user:\n\n${uid}`);
     if (!typed) return;
@@ -94,9 +113,22 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    if (!authLoading && user) loadUsers(null);
+    if (!authLoading && user && isAdmin) loadUsers(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.uid]);
+  }, [authLoading, user?.uid, isAdmin]);
+
+  if (!authLoading && user && !isAdmin) {
+    return (
+      <div className="p-6 md:p-8">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+          Admin
+        </h1>
+        <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+          You are not authorized to access this page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6">
@@ -154,6 +186,9 @@ export default function AdminPage() {
                   Status
                 </th>
                 <th className="text-left px-4 py-3" style={{ color: "var(--text-secondary)" }}>
+                  Visibility
+                </th>
+                <th className="text-left px-4 py-3" style={{ color: "var(--text-secondary)" }}>
                   Created
                 </th>
                 <th className="text-left px-4 py-3" style={{ color: "var(--text-secondary)" }}>
@@ -176,6 +211,9 @@ export default function AdminPage() {
                   <td className="px-4 py-3" style={{ color: u.disabled ? "#ef4444" : "#16a34a" }}>
                     {u.disabled ? "disabled" : "active"}
                   </td>
+                  <td className="px-4 py-3" style={{ color: u.hidden ? "#b45309" : "#16a34a" }}>
+                    {u.hidden ? "hidden" : "visible"}
+                  </td>
                   <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>
                     {u.creationTime || "—"}
                   </td>
@@ -184,6 +222,17 @@ export default function AdminPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex gap-2">
+                      <button
+                        onClick={() => setHidden(u.uid, !u.hidden)}
+                        className="px-3 py-1.5 rounded-md border text-xs font-medium"
+                        style={{
+                          borderColor: "var(--border-default)",
+                          backgroundColor: "var(--bg-card)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {u.hidden ? "Unhide" : "Hide"}
+                      </button>
                       <button
                         onClick={() => setDisabled(u.uid, !u.disabled)}
                         className="px-3 py-1.5 rounded-md border text-xs font-medium"
@@ -208,7 +257,7 @@ export default function AdminPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                  <td colSpan={7} className="px-4 py-8 text-center" style={{ color: "var(--text-muted)" }}>
                     {loading ? "Loading…" : "No users"}
                   </td>
                 </tr>
