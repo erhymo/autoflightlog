@@ -5,12 +5,17 @@ import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/auth/AuthGate";
 import Image from "next/image";
-import { AutoSyncManager } from "@/components/sync/AutoSyncManager";
+import { useAuthUser } from "@/lib/firebase/useAuthUser";
+import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+
+  const { user } = useAuthUser();
+  const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
+  const showAdmin = emailInAllowlist(user?.email, adminAllowlist);
+
   return (
     <AuthGate>
-			<AutoSyncManager />
       <div className="flex h-screen" style={{ backgroundColor: "var(--bg-primary)" }}>
         {/* Desktop Sidebar */}
         <aside
@@ -38,6 +43,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <NavLink href="/app/logbook">Logbook</NavLink>
             <NavLink href="/app/integrations">Integrations</NavLink>
             <NavLink href="/app/me">Settings</NavLink>
+	            {showAdmin && <NavLink href="/app/admin">Admin</NavLink>}
           </nav>
 
           {/* Footer */}
@@ -73,6 +79,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <MobileNavLink href="/app/logbook">Logbook</MobileNavLink>
             <MobileNavLink href="/app/integrations">Integrations</MobileNavLink>
             <MobileNavLink href="/app/me">Settings</MobileNavLink>
+	            {showAdmin && <MobileNavLink href="/app/admin">Admin</MobileNavLink>}
           </nav>
         </div>
 

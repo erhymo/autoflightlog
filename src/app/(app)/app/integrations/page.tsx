@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId, runMockSync } from "@/lib/repo/firestoreRepos";
+import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId } from "@/lib/repo/firestoreRepos";
 
 interface IntegrationRequest {
   id: string;
@@ -13,6 +13,8 @@ interface IntegrationRequest {
 }
 
 function generateEmailDraft(request: IntegrationRequest): string {
+	const origin = typeof window !== "undefined" ? window.location.origin : "[APP_URL]";
+
   return `Subject: API Integration Request for AutoFlightLog Flight Logbook Data
 
 Dear ${request.companyName} IT Team,
@@ -25,12 +27,12 @@ Details:
 
 Requirements:
 - We only need READ-ONLY access to my personal flight data
-- Data will be fetched automatically twice per day (polling)
+- Data may be fetched periodically by the pilot app (polling) once the integration is enabled
 - You can provide access via API token or API key
 - All data transmission will be secure and encrypted
 
 To set up this integration, please visit:
-http://localhost:3000/employer/setup/${request.id}
+${origin}/employer/setup/${request.id}
 
 This link contains instructions for configuring the API endpoint and generating secure credentials.
 
@@ -51,9 +53,7 @@ export default function IntegrationsPage() {
   const [crewId, setCrewId] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<RequestWithConnector | null>(null);
   const [loading, setLoading] = useState(true);
-	const [loadError, setLoadError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<{ connectorId: string; inserted: number; updated: number } | null>(null);
+		const [loadError, setLoadError] = useState<string | null>(null);
 
   async function loadRequests() {
 		try {
@@ -138,28 +138,6 @@ export default function IntegrationsPage() {
     }
   }
 
-  async function handleRunSync(connectorId: string) {
-    try {
-      setSyncing(connectorId);
-      setSyncResult(null);
-
-      const result = await runMockSync(connectorId);
-      setSyncResult({ connectorId, ...result });
-
-      // Reload requests to get updated lastSyncAt
-      await loadRequests();
-
-      // Auto-hide toast after 5 seconds
-      setTimeout(() => {
-        setSyncResult(null);
-      }, 5000);
-    } catch (error) {
-      alert(`Sync failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setSyncing(null);
-    }
-  }
-
   if (loading) {
     return (
       <div className="p-6 md:p-8">
@@ -193,24 +171,9 @@ export default function IntegrationsPage() {
           Integrations
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Connect with your employer to automatically sync flight data
+	          Connect with your employer to enable future flight data sync (coming soon)
         </p>
       </div>
-
-      {/* Sync Toast */}
-      {syncResult && (
-        <div
-          className="fixed top-4 right-4 md:right-8 rounded-xl border p-4 shadow-lg animate-slide-in z-50"
-          style={{
-            backgroundColor: "#DCFCE7",
-            borderColor: "#86EFAC"
-          }}
-        >
-          <p className="font-medium" style={{ color: "var(--status-active)" }}>
-            ✓ Sync completed: {syncResult.inserted} inserted, {syncResult.updated} updated
-          </p>
-        </div>
-      )}
 
       {/* Existing Integrations */}
       {requests.length > 0 && (
@@ -222,8 +185,7 @@ export default function IntegrationsPage() {
             {requests.map((req) => {
               const status = getRequestStatus(req);
               const statusColors = getStatusColor(status);
-              const isActive = status === "active";
-              const isSyncing = syncing === req.connector?.id;
+							const isActive = status === "active";
 
               return (
                 <div
@@ -269,33 +231,14 @@ export default function IntegrationsPage() {
 								Sync error: {req.connector.lastSyncError}
 							</p>
 						)}
-						{isActive && req.connector?.nextSyncAt && (
-							<p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-								Next sync: {new Date(req.connector.nextSyncAt).toLocaleString()}
-							</p>
-						)}
+
                     </div>
 
-                    {/* Sync Button for Active Integrations */}
-                    {isActive && req.connector && (
-                      <div className="flex items-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRunSync(req.connector.id);
-                          }}
-                          disabled={isSyncing}
-                          className="rounded-lg px-4 py-2 disabled:opacity-50 font-medium text-sm whitespace-nowrap text-white transition-all"
-                          style={{ backgroundColor: "var(--aviation-blue)" }}
-                          onMouseEnter={(e) => !isSyncing && (e.currentTarget.style.opacity = "0.9")}
-                          onMouseLeave={(e) => !isSyncing && (e.currentTarget.style.opacity = "1")}
-                        >
-                          {isSyncing ? "Syncing..." : "Run Sync Now"}
-                        </button>
-                      </div>
-                    )}
-
-                    {!isActive && (
+							{isActive ? (
+								<div className="text-sm" style={{ color: "var(--text-muted)" }}>
+									Sync coming soon
+								</div>
+							) : (
                       <div className="text-sm" style={{ color: "var(--text-muted)" }}>
                         {new Date(req.createdAt).toLocaleDateString()}
                       </div>
@@ -556,7 +499,7 @@ export default function IntegrationsPage() {
                 ✓ Integration is active!
               </p>
               <p className="text-sm" style={{ color: "#166534" }}>
-                Your flight data will sync automatically twice daily.
+	              Automatic flight data sync is coming soon.
               </p>
 					{selectedRequest.connector.lastSyncAttemptAt && (
                 <p className="text-sm mt-2" style={{ color: "#15803D" }}>
@@ -569,11 +512,7 @@ export default function IntegrationsPage() {
 							Sync error: {selectedRequest.connector.lastSyncError}
 						</p>
 					)}
-					{selectedRequest.connector.nextSyncAt && (
-						<p className="text-sm mt-2" style={{ color: "#15803D" }}>
-							Next sync: {new Date(selectedRequest.connector.nextSyncAt).toLocaleString()}
-						</p>
-					)}
+
             </div>
           ) : (
             <div

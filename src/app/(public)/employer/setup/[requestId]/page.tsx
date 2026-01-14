@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
-import { listIntegrationRequests, upsertConnector, getConnectorByRequestId, runMockSync } from "@/lib/repo/firestoreRepos";
+import { listIntegrationRequests, upsertConnector, getConnectorByRequestId } from "@/lib/repo/firestoreRepos";
 
 interface IntegrationRequest {
   id: string;
@@ -27,13 +27,13 @@ interface Connector {
   lastTestAt?: string;
   lastError?: string;
   lastSyncAt?: string;
-		lastSyncAttemptAt?: string;
+	lastSyncAttemptAt?: string;
   lastSyncStatus?: string;
-		lastSyncError?: string;
-		autoSyncEnabled?: boolean;
-		syncIntervalMinutes?: number;
-		nextSyncAt?: string;
-		consecutiveFailures?: number;
+	lastSyncError?: string;
+	autoSyncEnabled?: boolean;
+	syncIntervalMinutes?: number;
+	nextSyncAt?: string;
+	consecutiveFailures?: number;
 }
 
 export default function EmployerSetupPage() {
@@ -51,8 +51,6 @@ export default function EmployerSetupPage() {
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [authType, setAuthType] = useState<"api_key" | "bearer_token">("api_key");
   const [secret, setSecret] = useState("");
-  const [syncResult, setSyncResult] = useState<{ inserted: number; updated: number } | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -185,26 +183,6 @@ export default function EmployerSetupPage() {
 
     await upsertConnector(updatedConnector);
     setConnector(updatedConnector);
-  }
-
-  async function handleRunSync() {
-    if (!connector) return;
-
-    try {
-      setSyncing(true);
-      const result = await runMockSync(connector.id);
-      setSyncResult(result);
-
-      // Reload connector to get updated lastSyncAt
-      const updatedConnector = await getConnectorByRequestId(requestId);
-      if (updatedConnector) {
-        setConnector(updatedConnector);
-      }
-    } catch (error) {
-      alert(`Sync failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setSyncing(false);
-    }
   }
 
   if (loading) {
@@ -395,47 +373,26 @@ export default function EmployerSetupPage() {
               <div className="mt-4 space-y-3">
                 <div className="p-4 bg-white rounded-xl border border-green-200">
                   <p className="text-green-900 font-medium">
-                    ✓ Integration is active. The pilot app will sync twice daily.
+	                    ✓ Integration is active. Automatic sync is coming soon.
                   </p>
-								  {connector.nextSyncAt && (
-									  <p className="text-sm text-green-700 mt-1">
-										Next sync: {new Date(connector.nextSyncAt).toLocaleString()}
-									  </p>
-								  )}
                 </div>
 
-                <div className="p-4 bg-white rounded-xl border border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900">Manual Sync</h3>
-                    <button
-                      onClick={handleRunSync}
-                      disabled={syncing}
-                      className="rounded-xl bg-black text-white px-4 py-2 disabled:opacity-50 hover:bg-gray-800 font-medium text-sm"
-                    >
-                      {syncing ? "Syncing..." : "Run Sync Now"}
-                    </button>
-                  </div>
+	                <div className="p-4 bg-white rounded-xl border border-gray-200">
+	                  <h3 className="font-semibold text-gray-900 mb-1">Sync</h3>
+	                  <p className="text-sm text-gray-700">This version does not sync flight data yet.</p>
 
-								{connector.lastSyncAttemptAt && (
-								  <div className="text-sm text-gray-600">
-									Last attempt: {new Date(connector.lastSyncAttemptAt).toLocaleString()}
-									{connector.lastSyncStatus && (
-									  <span className="ml-2 text-gray-700">({connector.lastSyncStatus})</span>
-									)}
-								  </div>
-								)}
-								{connector.lastSyncStatus === "error" && connector.lastSyncError && (
-								  <div className="text-sm text-red-700 mt-1">Sync error: {connector.lastSyncError}</div>
-								)}
-
-                  {syncResult && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                      <p className="text-sm text-green-900 font-medium">
-                        Sync completed: {syncResult.inserted} inserted, {syncResult.updated} updated
-                      </p>
-                    </div>
-                  )}
-                </div>
+	                  {connector.lastSyncAttemptAt && (
+	                    <div className="text-sm text-gray-600">
+	                      Last attempt: {new Date(connector.lastSyncAttemptAt).toLocaleString()}
+	                      {connector.lastSyncStatus && (
+	                        <span className="ml-2 text-gray-700">({connector.lastSyncStatus})</span>
+	                      )}
+	                    </div>
+	                  )}
+	                  {connector.lastSyncStatus === "error" && connector.lastSyncError && (
+	                    <div className="text-sm text-red-700 mt-1">Sync error: {connector.lastSyncError}</div>
+	                  )}
+	                </div>
               </div>
             )}
           </div>
