@@ -4,38 +4,47 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/auth/AuthGate";
-import Image from "next/image";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
 
-  const { user } = useAuthUser();
-  const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
-  const showAdmin = emailInAllowlist(user?.email, adminAllowlist);
+	  const { user } = useAuthUser();
+	  const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
+	  const showAdmin = emailInAllowlist(user?.email, adminAllowlist);
+	  const pathname = usePathname();
+	  const isLogbook = pathname === "/app/logbook" || pathname?.startsWith("/app/logbook/");
 
-  return (
-    <AuthGate>
-      <div className="flex h-screen" style={{ backgroundColor: "var(--bg-primary)" }}>
-        {/* Desktop Sidebar */}
-        <aside
-          className="hidden md:flex md:flex-col w-64 border-r"
-          style={{
-            background: "linear-gradient(180deg, #0F2A44 0%, #1A3A5A 100%)",
-            borderColor: "rgba(0, 0, 0, 0.2)"
-          }}
-        >
-          {/* Brand Lockup */}
-          <div className="p-5 border-b flex items-center gap-3" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
-            <Image
-	              src="/assets/logo/autoflightlog-icon-light.svg"
-	              alt="AutoFlightLog"
-              width={32}
-              height={32}
-              className="flex-shrink-0"
-            />
+	  return (
+	    <AuthGate>
+	      <div
+	        className={`flex h-screen ${isLogbook ? "logbook-mode" : ""}`}
+	        style={{ backgroundColor: "var(--bg-primary)" }}
+	      >
+	        {/* Desktop Sidebar */}
+	        <aside
+	          className="hidden md:flex md:flex-col w-64 border-r"
+	          style={{
+	            background: "linear-gradient(180deg, #0F2A44 0%, #1A3A5A 100%)",
+	            borderColor: "rgba(0, 0, 0, 0.2)",
+	          }}
+	        >
+	          {/* Brand Lockup */}
+	          <div
+	            className="p-5 border-b flex items-center gap-3"
+	            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+	          >
+	            <div
+	              className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-md border text-lg font-semibold"
+	              style={{
+	                borderColor: "rgba(255, 255, 255, 0.85)",
+	                color: "#FFFFFF",
+	              }}
+	            >
+	              A
+	            </div>
 	            <h1 className="text-2xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
-          </div>
+	          </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-6 space-y-1">
@@ -54,24 +63,27 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        {/* Mobile Header */}
-        <div
-          className="md:hidden fixed top-0 left-0 right-0 z-10 border-b"
-          style={{
-            background: "linear-gradient(180deg, #0F2A44 0%, #1A3A5A 100%)",
-            borderColor: "rgba(0, 0, 0, 0.2)"
-          }}
-        >
-          {/* Brand Lockup */}
-          <div className="px-4 py-3 flex items-center gap-2.5">
-            <Image
-	              src="/assets/logo/autoflightlog-icon-light.svg"
-	              alt="AutoFlightLog"
-              width={28}
-              height={28}
-            />
+	        {/* Mobile Header */}
+	        <div
+	          className="md:hidden fixed top-0 left-0 right-0 z-10 border-b mobile-app-header"
+	          style={{
+	            background: "linear-gradient(180deg, #0F2A44 0%, #1A3A5A 100%)",
+	            borderColor: "rgba(0, 0, 0, 0.2)",
+	          }}
+	        >
+	          {/* Brand Lockup */}
+	          <div className="px-4 py-3 flex items-center gap-2.5">
+	            <div
+	              className="flex items-center justify-center h-7 w-7 rounded-md border text-base font-semibold"
+	              style={{
+	                borderColor: "rgba(255, 255, 255, 0.85)",
+	                color: "#FFFFFF",
+	              }}
+	            >
+	              A
+	            </div>
 	            <h1 className="text-xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
-          </div>
+	          </div>
 
           {/* Navigation Tabs */}
           <nav className="flex overflow-x-auto px-2 pb-2 gap-1">
@@ -83,8 +95,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </nav>
         </div>
 
-        {/* Main content */}
-        <main className="flex-1 overflow-auto md:pt-0 pt-24">
+	        {/* Main content */}
+	        <main className="flex-1 overflow-auto md:pt-0 pt-24 app-main">
           {children}
         </main>
       </div>

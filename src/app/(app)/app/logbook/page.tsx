@@ -12,6 +12,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+const PAGE_SIZE = 15;
+
+function parseDateTime(value: unknown): number {
+  if (!value) return 0;
+  const timestamp = new Date(String(value)).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 export default function LogbookPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
@@ -19,6 +27,7 @@ export default function LogbookPage() {
   const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
 
   async function refresh() {
 		try {
@@ -65,22 +74,59 @@ export default function LogbookPage() {
     await refresh();
   }
 
-		  // Determine which fields are currently active/visible according to the view.
-		  // For now we always include all EASA fields so the logbook table matches
-		  // the full EASA layout, regardless of how the view was previously saved.
-		  const activeFieldIds = useMemo(() => {
-		    const ids = new Set<string>();
-		    if (view?.columns && view.columns.length > 0) {
-		      for (const col of view.columns) ids.add(col.fieldId);
-		    } else if (view?.visibleFields && view.visibleFields.length > 0) {
-		      for (const id of view.visibleFields) ids.add(id);
-		    }
-		    // Always ensure that all known EASA fields are present so the layout is complete
-		    for (const fieldId of EASA_FIELD_ORDER) ids.add(fieldId);
-		    // And as a safety net, include any remaining catalog fields
-		    for (const f of FIELD_CATALOG) ids.add(f.id);
-		    return ids;
-		  }, [view]);
+		// Sort entries so newest flights are always shown first (by flight date if available,
+		// otherwise by created/updated timestamp), then paginate.
+		const sortedEntries = useMemo(
+		  () =>
+		    [...entries].sort((a, b) => {
+		      const timeA = parseDateTime(a.values?.date ?? a.createdAt ?? a.updatedAt);
+		      const timeB = parseDateTime(b.values?.date ?? b.createdAt ?? b.updatedAt);
+
+		      if (timeA === timeB) {
+		        // Tie-breaker: newer createdAt first
+		        return parseDateTime(a.createdAt) < parseDateTime(b.createdAt) ? 1 : -1;
+		      }
+
+		      // Newest first
+		      return timeB - timeA;
+		    }),
+		  [entries]
+		);
+
+		const totalPages = Math.ceil(sortedEntries.length / PAGE_SIZE);
+		const safePage = totalPages === 0 ? 0 : Math.min(currentPage, totalPages - 1);
+
+		const pagedEntries = useMemo(
+		  () =>
+		    sortedEntries.slice(
+		      safePage * PAGE_SIZE,
+		      (safePage + 1) * PAGE_SIZE
+		    ),
+		  [sortedEntries, safePage]
+		);
+
+			  // Determine which fields are currently active/visible according to the view.
+			  // We respect the saved view (columns/visibleFields) so that Settings fully
+			  // controls which columns are shown. If no view is configured yet, we fall
+			  // back to the full EASA layout.
+			  const activeFieldIds = useMemo(() => {
+			    const ids = new Set<string>();
+			    if (view?.columns && view.columns.length > 0) {
+			      for (const col of view.columns) {
+			        ids.add(col.fieldId);
+			      }
+			    } else if (view?.visibleFields && view.visibleFields.length > 0) {
+			      for (const id of view.visibleFields) {
+			        ids.add(id);
+			      }
+			    } else {
+			      // No view yet: show all EASA fields by default.
+			      for (const fieldId of EASA_FIELD_ORDER) {
+			        ids.add(fieldId);
+			      }
+			    }
+			    return ids;
+			  }, [view]);
 
 	  // Build EASA-style layout filtered by the active fields
 	  const displayedGroups = useMemo(() => {
@@ -122,7 +168,7 @@ export default function LogbookPage() {
 
 	  if (displayedGroups.length === 0) {
 	    return (
-	      <div className="p-6 md:p-8">
+	      <div className="p-4 md:p-8">
 	        <h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
 	          Logbook
 	        </h1>
@@ -149,25 +195,63 @@ export default function LogbookPage() {
 	    );
 	  }
 
-  return (
-    <div className="p-6 md:p-8">
+	  return (
+	    <div className="p-4 md:p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+	          <h1 className="text-xl md:text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
             Logbook
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+	          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             {entries.length} {entries.length === 1 ? "entry" : "entries"}
           </p>
         </div>
-        <button
-          className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
-          style={{ backgroundColor: "var(--aviation-blue)" }}
-          onClick={addEntry}
-        >
-          Add Entry
-        </button>
+	        <div className="flex flex-col items-end gap-2">
+	          <div className="flex items-center gap-2">
+	            <button
+	              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
+	              style={{
+	                borderColor: "var(--border-default)",
+	                color: "var(--text-primary)",
+	                backgroundColor: "var(--bg-card)",
+	              }}
+		              disabled={sortedEntries.length === 0 || safePage === 0}
+	              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+	            >
+	              Previous page
+	            </button>
+	            <button
+	              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
+	              style={{
+	                borderColor: "var(--border-default)",
+	                color: "var(--text-primary)",
+	                backgroundColor: "var(--bg-card)",
+	              }}
+		              disabled={sortedEntries.length === 0 || safePage >= totalPages - 1}
+		              onClick={() =>
+		                setCurrentPage((p) =>
+		                  totalPages === 0 ? 0 : Math.min(p + 1, totalPages - 1)
+		                )
+		              }
+	            >
+	              Next page
+	            </button>
+		            <span
+		              className="text-xs ml-2"
+		              style={{ color: "var(--text-secondary)" }}
+		            >
+		              Page {sortedEntries.length === 0 ? 0 : safePage + 1} of {totalPages || 0}
+		            </span>
+	          </div>
+	          <button
+	            className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
+	            style={{ backgroundColor: "var(--aviation-blue)" }}
+	            onClick={addEntry}
+	          >
+	            Add Entry
+	          </button>
+	        </div>
       </div>
 
 	      {/* Table */}
@@ -179,13 +263,13 @@ export default function LogbookPage() {
 	        }}
 	      >
 	        <div className="overflow-x-auto">
-	          <table className="w-full text-sm">
+	          <table className="w-full text-xs md:text-sm">
 	            <thead style={{ backgroundColor: "var(--bg-primary)" }}>
 	              {/* Top header row: group labels */}
 	              <tr className="border-b" style={{ borderColor: "var(--border-default)" }}>
 	                <th
-	                  className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wide"
-	                  style={{ color: "var(--text-secondary)", width: 40 }}
+	                  className="text-left px-2 py-2 md:px-3 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
+	                  style={{ color: "var(--text-secondary)", width: 32 }}
 	                  rowSpan={2}
 	                >
 	                  #
@@ -195,15 +279,15 @@ export default function LogbookPage() {
 	                    key={group.id}
 	                    colSpan={group.columns.length}
 	                    rowSpan={group.columns.length > 1 ? 1 : 2}
-	                    className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide"
+	                    className="text-left px-2 py-2 md:px-4 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
 	                    style={{ color: "var(--text-secondary)" }}
 	                  >
 	                    {group.label}
 	                  </th>
 	                ))}
 	                <th
-	                  className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wide"
-	                  style={{ color: "var(--text-secondary)", width: 60 }}
+	                  className="text-left px-2 py-2 md:px-4 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
+	                  style={{ color: "var(--text-secondary)", width: 56 }}
 	                  rowSpan={2}
 	                >
 	                  
@@ -216,7 +300,7 @@ export default function LogbookPage() {
 	                    ? group.columns.map((col) => (
 	                        <th
 	                          key={`${group.id}-${col.fieldId}`}
-	                          className="text-left px-4 py-2 font-medium text-[11px] uppercase tracking-wide"
+	                          className="text-left px-2 py-1.5 md:px-4 md:py-2 font-medium text-[10px] md:text-[11px] uppercase tracking-wide"
 	                          style={{ color: "var(--text-secondary)" }}
 	                        >
 	                          {col.subLabel ?? ""}
@@ -226,8 +310,8 @@ export default function LogbookPage() {
 	                )}
 	              </tr>
 	            </thead>
-	            <tbody>
-	              {entries.map((entry, rowIndex) => (
+		            <tbody>
+		              {pagedEntries.map((entry, rowIndex) => (
 	                <tr
 	                  key={entry.id}
 	                  className="border-t transition-colors"
@@ -236,15 +320,15 @@ export default function LogbookPage() {
 	                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
 	                >
 	                  <td
-	                    className="px-3 py-3 text-xs text-right select-none"
-	                    style={{ color: "var(--text-secondary)", width: 40 }}
+	                    className="px-2 py-2 md:px-3 md:py-3 text-[11px] md:text-xs text-right select-none"
+	                    style={{ color: "var(--text-secondary)", width: 32 }}
 	                  >
-	                    {rowIndex + 1}
+		                    {safePage * PAGE_SIZE + rowIndex + 1}
 	                  </td>
 	                  {flatColumns.map((col) => (
 	                    <td
 	                      key={col.fieldId}
-	                      className="px-4 py-3 cursor-pointer whitespace-nowrap"
+	                      className="px-2 py-2 md:px-4 md:py-3 cursor-pointer text-xs md:text-sm whitespace-normal sm:whitespace-nowrap"
 	                      style={{ color: "var(--text-primary)" }}
 	                      onClick={() => router.push(`/app/logbook/edit/${entry.id}`)}
 	                    >
@@ -279,7 +363,7 @@ export default function LogbookPage() {
 	              {entries.length === 0 && (
 	                <tr>
 	                  <td
-	                    className="px-4 py-8 text-center"
+	                    className="px-3 md:px-4 py-6 md:py-8 text-center"
 	                    colSpan={flatColumns.length + 2}
 	                    style={{ color: "var(--text-secondary)" }}
 	                  >

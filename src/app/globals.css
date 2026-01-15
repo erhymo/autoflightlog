@@ -42,6 +42,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Logbook full-screen mode on small landscape screens */
+@media (orientation: landscape) and (max-height: 500px) {
+  .logbook-mode .mobile-app-header {
+    display: none;
+  }
+
+  .logbook-mode .app-main {
+    padding-top: 0;
+  }
+}
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);

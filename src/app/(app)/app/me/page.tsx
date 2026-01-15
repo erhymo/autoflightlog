@@ -65,13 +65,27 @@ export default function MyPage() {
       required: false,
       order: idx,
     }));
-    const tmpl = { ...baseTemplate, fields, formOrder: selected, updatedAt: new Date(iso) };
-
-    const view = buildDefaultView(iso, tmpl.id);
-    view.columns = selected.map((k, idx) => ({ fieldId: k, width: 150, order: idx + 1 }));
-
-    await upsertTemplate(tmpl);
-    await upsertView(view);
+	    const tmpl = { ...baseTemplate, fields, formOrder: selected, updatedAt: new Date(iso) };
+	
+	    // Build a view that matches exactly the fields the user has selected,
+	    // so the logbook table only shows those columns.
+	    const baseView = buildDefaultView(iso, tmpl.id);
+	    const visibleFields = selected.length > 0 ? selected : baseView.visibleFields;
+	    const columns = visibleFields.map((fieldId, idx) => ({
+	      fieldId,
+	      width: 140,
+	      order: idx + 1,
+	    }));
+	
+	    const view = {
+	      ...baseView,
+	      visibleFields,
+	      columns,
+	      updatedAt: new Date(iso),
+	    };
+	
+	    await upsertTemplate(tmpl);
+	    await upsertView(view);
     await setUserFlags({ setupComplete: true });
 
     router.push("/app/logbook");

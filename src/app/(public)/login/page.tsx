@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
@@ -67,30 +66,31 @@ export default function LoginPage() {
       className="min-h-screen flex items-center justify-center p-6"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
-      <div
-        className="w-full max-w-md rounded-xl border p-10 shadow-lg"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          borderColor: "var(--border-default)"
-        }}
-      >
-        {/* Brand Lockup */}
-        <div className="flex flex-col items-center mb-8">
-          {/* Full logo lockup */}
-          <Image
-	            src="/assets/logo/autoflightlog.svg"
-						alt="AutoFlightLog"
-            width={180}
-            height={108}
-            priority
-            className="mb-3"
-          />
+	      <div
+	        className="w-full max-w-md rounded-xl border p-10 shadow-lg"
+	        style={{
+	          backgroundColor: "var(--bg-card)",
+	          borderColor: "var(--border-default)",
+	        }}
+	      >
+	        {/* Brand Lockup */}
+	        <div className="flex flex-col items-center mb-8">
+	          {/* Simple A logo */}
+	          <div
+	            className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border-2 text-3xl font-semibold"
+	            style={{
+	              borderColor: "var(--aviation-blue)",
+	              color: "var(--aviation-blue)",
+	            }}
+	          >
+	            A
+	          </div>
 
-          {/* Tagline */}
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-            Professional Flight Logbook
-          </p>
-        </div>
+	          {/* Tagline */}
+	          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+	            Professional Flight Logbook
+	          </p>
+	        </div>
 
         {/* Welcome Message */}
         <div className="text-center mb-6">

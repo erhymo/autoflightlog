@@ -107,7 +107,7 @@ export default function EditEntryPage() {
 		);
 	}
 
-  if (!entry || !template) {
+	  if (!entry || !template) {
     return (
       <div className="p-6">
         <p className="text-red-600">Entry or template not found</p>
@@ -115,8 +115,17 @@ export default function EditEntryPage() {
     );
   }
 
-  // Get fields in form order
-  const fieldKeys = template.formOrder || template.fields.map((f) => f.id);
+	  // Get fields in form order, but always include all known catalog fields so that
+	  // new EASA columns added later automatically appear in the form.
+	  const templateOrder = (template.formOrder && template.formOrder.length > 0)
+	    ? template.formOrder
+	    : template.fields.map((f) => f.id);
+	
+	  const catalogOrder = FIELD_CATALOG.map((f) => f.key || f.id);
+	
+	  const fieldKeys = Array.from(
+	    new Set<string>([...templateOrder, ...catalogOrder])
+	  );
 
   return (
     <div className="min-h-screen pb-32" style={{ backgroundColor: "var(--bg-primary)" }}>
@@ -196,34 +205,45 @@ export default function EditEntryPage() {
                     onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
                   />
                 ) : (
-                  (() => {
-                    const suggestions = getFieldSuggestions(allEntries, fieldKey, 8);
-                    const listId = suggestions.length ? `suggestions-${fieldKey}` : undefined;
+	              (() => {
+	                const suggestions = getFieldSuggestions(allEntries, fieldKey, 4);
 
-                    return (
-                      <>
-                        <input
-                          type="text"
-                          value={value}
-                          list={listId}
-                          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-                          className="w-full rounded-lg border p-3 text-base transition-colors"
-                          style={{
-                            borderColor: "var(--border-default)",
-                            color: "var(--text-primary)"
-                          }}
-                          onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-                          onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
-                        />
-                        {listId && (
-                          <datalist id={listId}>
-                            {suggestions.map((s) => (
-                              <option key={s} value={s} />
-                            ))}
-                          </datalist>
-                        )}
-                      </>
-                    );
+	                return (
+	                  <div className="space-y-2">
+	                    {suggestions.length > 0 && (
+	                      <div className="flex flex-wrap gap-2">
+	                        {suggestions.map((s) => (
+	                          <button
+	                            key={s}
+	                            type="button"
+	                            className="px-3 py-1 rounded-full text-xs md:text-sm border"
+	                            style={{
+	                              borderColor: "var(--border-default)",
+	                              backgroundColor: "var(--bg-card)",
+	                              color: "var(--text-secondary)",
+	                            }}
+	                            onClick={() => handleFieldChange(fieldKey, s)}
+	                          >
+	                            {s}
+	                          </button>
+	                        ))}
+	                      </div>
+	                    )}
+
+	                    <input
+	                      type="text"
+	                      value={value}
+	                      onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+	                      className="w-full rounded-lg border p-3 text-base transition-colors"
+	                      style={{
+	                        borderColor: "var(--border-default)",
+	                        color: "var(--text-primary)",
+	                      }}
+	                      onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
+	                      onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+	                    />
+	                  </div>
+	                );
                   })()
                 )}
 
