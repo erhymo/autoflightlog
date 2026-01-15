@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
-import { upsertTemplate, upsertView, getUserFlags, setUserFlags } from "@/lib/repo/firestoreRepos";
+import { upsertTemplate, upsertView, getUserFlags, setUserFlags, getView } from "@/lib/repo/firestoreRepos";
 import { FieldType } from "@/types/domain";
 import { EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 
@@ -28,18 +28,36 @@ export default function MyPage() {
 	    });
 	  }, []);
 
-  useEffect(() => {
-    (async () => {
-      const flags = await getUserFlags();
-      if (!flags.setupComplete) {
-        const tmpl = buildDefaultEasaTemplate(nowIso());
-        setSelected(tmpl.formOrder || []);
-      } else {
-        const tmpl = buildDefaultEasaTemplate(nowIso());
-        setSelected(tmpl.formOrder || []);
-      }
-    })();
-  }, []);
+	  useEffect(() => {
+	    let cancelled = false;
+	    (async () => {
+	      const flags = await getUserFlags();
+	      // If first-time setup, start from the full default EASA layout.
+	      if (!flags.setupComplete) {
+	        const tmpl = buildDefaultEasaTemplate(nowIso());
+	        if (!cancelled) setSelected(tmpl.formOrder || []);
+	        return;
+	      }
+
+	      // Otherwise, load the current saved view so the checkboxes reflect
+	      // what the logbook actually shows.
+	      const view = await getView("view_default");
+	      if (cancelled) return;
+
+	      if (view?.columns && view.columns.length > 0) {
+	        setSelected(view.columns.map((c) => c.fieldId));
+	      } else if (view?.visibleFields && view.visibleFields.length > 0) {
+	        setSelected([...view.visibleFields]);
+	      } else {
+	        // Fallback: default EASA order
+	        const tmpl = buildDefaultEasaTemplate(nowIso());
+	        setSelected(tmpl.formOrder || []);
+	      }
+	    })();
+	    return () => {
+	      cancelled = true;
+	    };
+	  }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof catalog>();
