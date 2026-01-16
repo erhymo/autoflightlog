@@ -481,14 +481,14 @@ export default function EditEntryPage() {
 		    }, new Map<string, string[]>())
 		  );
 
-		  const renderFieldRow = (fieldKey: string) => {
+			  const renderFieldRow = (fieldKey: string) => {
 		    const fieldDef = FIELD_CATALOG.find((f) => f.id === fieldKey || f.key === fieldKey);
 		    if (!fieldDef) return null;
 		
-		    const value = entry.values[fieldKey] ?? "";
-		    const isManuallyEdited = entry.manualOverrides?.[fieldKey] === true;
-		
-		    let fieldControl: JSX.Element;
+			    const value = entry.values[fieldKey] ?? "";
+			    const isManuallyEdited = entry.manualOverrides?.[fieldKey] === true;
+			
+			    let fieldControl;
 		
 		    if (fieldDef.type === "date") {
 		      fieldControl = (
