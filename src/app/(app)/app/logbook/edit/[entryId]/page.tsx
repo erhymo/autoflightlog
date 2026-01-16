@@ -7,6 +7,33 @@ import { LogbookEntry, Template } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { getFieldSuggestions } from "@/lib/suggestions/logbookDefaults";
 
+function findMostRecentAircraftForRegistration(
+  entries: LogbookEntry[],
+  registration: string
+): string | null {
+  const target = registration.trim().toUpperCase();
+  if (!target) return null;
+
+  let bestAircraft: string | null = null;
+  let bestTimestamp = "";
+
+  for (const entry of entries) {
+    const reg = String((entry.values as any)?.registration ?? "").trim().toUpperCase();
+    const ac = String((entry.values as any)?.aircraft ?? "").trim();
+
+    if (!reg || !ac) continue;
+    if (reg !== target) continue;
+
+    const ts = entry.updatedAt || entry.createdAt || "";
+    if (!bestAircraft || ts > bestTimestamp) {
+      bestAircraft = ac;
+      bestTimestamp = ts;
+    }
+  }
+
+  return bestAircraft;
+}
+
 export default function EditEntryPage() {
   const router = useRouter();
   const params = useParams();
@@ -55,21 +82,62 @@ export default function EditEntryPage() {
 		};
   }, [entryId, router]);
 
-  function handleFieldChange(fieldKey: string, value: any) {
-    if (!entry) return;
+		  function handleFieldChange(fieldKey: string, value: any) {
+		    if (!entry) return;
 
-    setEntry({
-      ...entry,
-      values: {
-        ...entry.values,
-        [fieldKey]: value,
-      },
-      manualOverrides: {
-        ...entry.manualOverrides,
-        [fieldKey]: true,
-      },
-    });
-  }
+		    // Finn feltdefinisjon slik at vi kan behandle tekstfelter spesielt
+		    const fieldDef = FIELD_CATALOG.find(
+		      (f) => f.id === fieldKey || f.key === fieldKey
+		    );
+
+		    // Normaliser verdi før vi lagrer den i state
+		    let nextValue = value;
+		    // For tekstfelter vil vi vise og lagre alt som STORE BOKSTAVER,
+		    // men vi lar "remarks" være uendret slik at fritekst fortsatt kan
+		    // skrives med vanlig typografi.
+		    if (
+		      fieldDef?.type === "text" &&
+		      typeof nextValue === "string" &&
+		      fieldKey !== "remarks"
+		    ) {
+		      nextValue = nextValue.toUpperCase();
+		    }
+
+		    const nextValues: LogbookEntry["values"] = {
+		      ...entry.values,
+		      [fieldKey]: nextValue,
+		    };
+		
+		    const nextManualOverrides: LogbookEntry["manualOverrides"] = {
+		      ...(entry.manualOverrides || {}),
+		      [fieldKey]: true,
+		    };
+		
+		    // If the registration changes, and the user has not manually overridden
+		    // the aircraft type on this entry, try to auto-fill the aircraft based
+		    // on the most recent matching registration in the user's logbook.
+		    if (fieldKey === "registration") {
+		      const hasManualAircraftOverride = entry.manualOverrides?.aircraft === true;
+		      const regValue =
+		        typeof nextValue === "string" ? nextValue : String(nextValue ?? "");
+		
+		      if (!hasManualAircraftOverride) {
+		        const suggestedAircraft = findMostRecentAircraftForRegistration(
+		          allEntries,
+		          regValue
+		        );
+		        if (suggestedAircraft) {
+		          (nextValues as any).aircraft = suggestedAircraft;
+		        }
+		      }
+		    }
+		
+		    setEntry({
+		      ...entry,
+		      values: nextValues,
+		      manualOverrides: nextManualOverrides,
+		    });
+		  }
 
   async function handleSave() {
     if (!entry) return;

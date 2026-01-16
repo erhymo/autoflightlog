@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listEntries, upsertEntry, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
-import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 
@@ -28,6 +27,8 @@ export default function LogbookPage() {
 	const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
+	  const [registrationFilter, setRegistrationFilter] = useState("");
+	  const [aircraftFilter, setAircraftFilter] = useState("");
 
   async function refresh() {
 		try {
@@ -74,36 +75,56 @@ export default function LogbookPage() {
     await refresh();
   }
 
-		// Sort entries so newest flights are always shown first (by flight date if available,
-		// otherwise by created/updated timestamp), then paginate.
-		const sortedEntries = useMemo(
-		  () =>
-		    [...entries].sort((a, b) => {
-		      const timeA = parseDateTime(a.values?.date ?? a.createdAt ?? a.updatedAt);
-		      const timeB = parseDateTime(b.values?.date ?? b.createdAt ?? b.updatedAt);
+			// Sort entries so newest flights are always shown first (by flight date if available,
+			// otherwise by created/updated timestamp).
+			const sortedEntries = useMemo(
+			  () =>
+			    [...entries].sort((a, b) => {
+			      const timeA = parseDateTime(a.values?.date ?? a.createdAt ?? a.updatedAt);
+			      const timeB = parseDateTime(b.values?.date ?? b.createdAt ?? b.updatedAt);
+			
+			      if (timeA === timeB) {
+			        // Tie-breaker: newer createdAt first
+			        return parseDateTime(a.createdAt) < parseDateTime(b.createdAt) ? 1 : -1;
+			      }
+			
+			      // Newest first
+			      return timeB - timeA;
+			    }),
+			  [entries]
+			);
 
-		      if (timeA === timeB) {
-		        // Tie-breaker: newer createdAt first
-		        return parseDateTime(a.createdAt) < parseDateTime(b.createdAt) ? 1 : -1;
-		      }
+			// Apply client-side filters for registration and aircraft type before paginating.
+			const filteredEntries = useMemo(
+			  () => {
+			    const regFilter = registrationFilter.trim().toLowerCase();
+			    const acFilter = aircraftFilter.trim().toLowerCase();
+			
+			    if (!regFilter && !acFilter) return sortedEntries;
+			
+			    return sortedEntries.filter((entry) => {
+			      const reg = String((entry.values as any)?.registration ?? "").toLowerCase();
+			      const ac = String((entry.values as any)?.aircraft ?? "").toLowerCase();
+			
+			      const matchesReg = !regFilter || reg.includes(regFilter);
+			      const matchesAc = !acFilter || ac.includes(acFilter);
+			
+			      return matchesReg && matchesAc;
+			    });
+			  }, [sortedEntries, registrationFilter, aircraftFilter]
+			);
 
-		      // Newest first
-		      return timeB - timeA;
-		    }),
-		  [entries]
-		);
+			const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
+			const safePage = totalPages === 0 ? 0 : Math.min(currentPage, totalPages - 1);
 
-		const totalPages = Math.ceil(sortedEntries.length / PAGE_SIZE);
-		const safePage = totalPages === 0 ? 0 : Math.min(currentPage, totalPages - 1);
-
-		const pagedEntries = useMemo(
-		  () =>
-		    sortedEntries.slice(
-		      safePage * PAGE_SIZE,
-		      (safePage + 1) * PAGE_SIZE
-		    ),
-		  [sortedEntries, safePage]
-		);
+			const pagedEntries = useMemo(
+			  () =>
+			    filteredEntries.slice(
+			      safePage * PAGE_SIZE,
+			      (safePage + 1) * PAGE_SIZE
+			    ),
+			  [filteredEntries, safePage]
+			);
 
 			  // Determine which fields are currently active/visible according to the view.
 			  // We respect the saved view (columns/visibleFields) so that Settings fully
@@ -204,7 +225,7 @@ export default function LogbookPage() {
             Logbook
           </h1>
 	          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-            {entries.length} {entries.length === 1 ? "entry" : "entries"}
+		            {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
           </p>
         </div>
 	        <div className="flex flex-col items-end gap-2">
@@ -216,7 +237,7 @@ export default function LogbookPage() {
 	                color: "var(--text-primary)",
 	                backgroundColor: "var(--bg-card)",
 	              }}
-		              disabled={sortedEntries.length === 0 || safePage === 0}
+				              disabled={filteredEntries.length === 0 || safePage === 0}
 	              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
 	            >
 	              Previous page
@@ -228,7 +249,7 @@ export default function LogbookPage() {
 	                color: "var(--text-primary)",
 	                backgroundColor: "var(--bg-card)",
 	              }}
-		              disabled={sortedEntries.length === 0 || safePage >= totalPages - 1}
+				              disabled={filteredEntries.length === 0 || safePage >= totalPages - 1}
 		              onClick={() =>
 		                setCurrentPage((p) =>
 		                  totalPages === 0 ? 0 : Math.min(p + 1, totalPages - 1)
@@ -237,12 +258,12 @@ export default function LogbookPage() {
 	            >
 	              Next page
 	            </button>
-		            <span
-		              className="text-xs ml-2"
-		              style={{ color: "var(--text-secondary)" }}
-		            >
-		              Page {sortedEntries.length === 0 ? 0 : safePage + 1} of {totalPages || 0}
-		            </span>
+				            <span
+				              className="text-xs ml-2"
+				              style={{ color: "var(--text-secondary)" }}
+				            >
+				              Page {filteredEntries.length === 0 ? 0 : safePage + 1} of {totalPages || 0}
+				            </span>
 	          </div>
 	          <button
 	            className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
@@ -253,6 +274,54 @@ export default function LogbookPage() {
 	          </button>
 	        </div>
       </div>
+
+	      {/* Filters */}
+	      <div className="mb-4 flex flex-col md:flex-row md:items-end gap-3">
+	        <div className="flex-1 min-w-[140px]">
+	          <label
+	            className="block text-[11px] md:text-xs font-medium mb-1 uppercase tracking-wide"
+	            style={{ color: "var(--text-secondary)" }}
+	          >
+	            Filter by registration
+	          </label>
+	          <input
+	            type="text"
+	            value={registrationFilter}
+	            onChange={(e) => setRegistrationFilter(e.target.value)}
+	            className="w-full rounded-lg border px-3 py-2 text-xs md:text-sm"
+	            style={{
+	              borderColor: "var(--border-default)",
+	              color: "var(--text-primary)",
+	              backgroundColor: "var(--bg-card)",
+	            }}
+	            placeholder="e.g. LN-OXI"
+	            onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
+	            onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+	          />
+	        </div>
+	        <div className="flex-1 min-w-[140px]">
+	          <label
+	            className="block text-[11px] md:text-xs font-medium mb-1 uppercase tracking-wide"
+	            style={{ color: "var(--text-secondary)" }}
+	          >
+	            Filter by aircraft type
+	          </label>
+	          <input
+	            type="text"
+	            value={aircraftFilter}
+	            onChange={(e) => setAircraftFilter(e.target.value)}
+	            className="w-full rounded-lg border px-3 py-2 text-xs md:text-sm"
+	            style={{
+	              borderColor: "var(--border-default)",
+	              color: "var(--text-primary)",
+	              backgroundColor: "var(--bg-card)",
+	            }}
+	            placeholder="e.g. AW169"
+	            onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
+	            onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+	          />
+	        </div>
+	      </div>
 
 	      {/* Table */}
 	      <div
