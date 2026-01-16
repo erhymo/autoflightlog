@@ -2,14 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { listEntries, upsertEntry, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
+import { listEntries, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
-import { getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
-
-function nowIso() {
-  return new Date().toISOString();
-}
 
 const PAGE_SIZE = 15;
 
@@ -53,21 +48,11 @@ export default function LogbookPage() {
     refresh();
   }, []);
 
-  async function addEntry() {
-    const id = "e_" + Math.random().toString(36).slice(2);
-
-    const prefill = getPrefillValuesForNewEntry(entries);
-    const e: LogbookEntry = {
-      id,
-      templateId: "tmpl_easa_default",
-      values: prefill,
-      source: { system: "manual" },
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    await upsertEntry(e);
-    router.push(`/app/logbook/edit/${id}`);
-  }
+	  function addEntry() {
+	    // For a new entry, navigate to a special "new" edit route. The entry is
+	    // only created in the database if/when the user presses Save.
+	    router.push("/app/logbook/edit/new");
+	  }
 
   async function handleDelete(entryId: string) {
     await deleteEntry(entryId);

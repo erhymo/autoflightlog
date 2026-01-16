@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { getEntry, upsertEntry, getTemplate, listEntries } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, Template } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
-import { getFieldSuggestions } from "@/lib/suggestions/logbookDefaults";
+import { getFieldSuggestions, getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
 
 function findMostRecentAircraftForRegistration(
   entries: LogbookEntry[],
@@ -31,10 +31,14 @@ function findMostRecentAircraftForRegistration(
     }
   }
 
-  return bestAircraft;
-}
+	  return bestAircraft;
+	}
 
-export default function EditEntryPage() {
+	function nowIso() {
+	  return new Date().toISOString();
+	}
+
+	export default function EditEntryPage() {
   const router = useRouter();
   const params = useParams();
   const entryId = params.entryId as string;
@@ -46,41 +50,86 @@ export default function EditEntryPage() {
 	const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-		let cancelled = false;
-		async function load() {
-			try {
-				setLoadError(null);
-				const entryData = await getEntry(entryId);
-				if (!entryData) {
-					alert("Entry not found");
-					router.push("/app/logbook");
-					return;
-				}
+	  useEffect(() => {
+	    let cancelled = false;
+	    async function load() {
+	      try {
+	        setLoadError(null);
 
-				const [templateData, entriesData] = await Promise.all([
-					getTemplate(entryData.templateId),
-					listEntries(),
-				]);
-				if (cancelled) return;
-				setEntry(entryData);
-				setTemplate(templateData);
-				setAllEntries(entriesData);
-			} catch (err) {
-				console.error("Edit entry load failed", err);
-				if (cancelled) return;
-				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
-				const message = err instanceof Error ? err.message : String(err);
-				setLoadError(code ? `${code}: ${message}` : message);
-			} finally {
-				if (!cancelled) setLoading(false);
-			}
-		}
-		load();
-		return () => {
-			cancelled = true;
-		};
-  }, [entryId, router]);
+	        // New entry flow: no document exists yet. We build a draft entry in
+	        // memory using sensible defaults, and only persist it if the user
+	        // presses Save.
+	        if (entryId === "new") {
+	          const [templateData, entriesData] = await Promise.all([
+	            getTemplate("tmpl_easa_default"),
+	            listEntries(),
+	          ]);
+	          if (cancelled) return;
+
+	          const prefill = getPrefillValuesForNewEntry(entriesData);
+	          const now = nowIso();
+	          const draftEntry: LogbookEntry = {
+	            id: "draft",
+	            templateId: "tmpl_easa_default",
+	            values: prefill,
+	            source: { system: "manual" },
+	            createdAt: now,
+	            updatedAt: now,
+	            manualOverrides: {},
+	          };
+
+	          setEntry(draftEntry);
+	          setTemplate(templateData);
+	          setAllEntries(entriesData);
+	          return;
+	        }
+
+	        // Existing entry flow: load from Firestore as before.
+	        const entryData = await getEntry(entryId);
+	        if (!entryData) {
+	          alert("Entry not found");
+	          router.push("/app/logbook");
+	          return;
+	        }
+
+	        const [templateData, entriesData] = await Promise.all([
+	          getTemplate(entryData.templateId),
+	          listEntries(),
+	        ]);
+	        if (cancelled) return;
+	        setEntry(entryData);
+	        setTemplate(templateData);
+	        setAllEntries(entriesData);
+	      } catch (err) {
+	        console.error("Edit entry load failed", err);
+	        if (cancelled) return;
+	        const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
+	        const message = err instanceof Error ? err.message : String(err);
+	        setLoadError(code ? `${code}: ${message}` : message);
+	      } finally {
+	        if (!cancelled) setLoading(false);
+	      }
+	    }
+	    load();
+	    return () => {
+	      cancelled = true;
+	    };
+	  }, [entryId, router]);
+
+		  const MULTI_ENGINE_MULTI_PILOT_TYPES = new Set([
+		    "AW169",
+		    "AW139",
+		    "AW189",
+		    "A145",
+		    "A135",
+		  ]);
+
+		  function isMultiEngineMultiPilotType(aircraftRaw: unknown): boolean {
+		    if (typeof aircraftRaw !== "string") return false;
+		    const v = aircraftRaw.trim().toUpperCase();
+		    if (!v) return false;
+		    return MULTI_ENGINE_MULTI_PILOT_TYPES.has(v);
+		  }
 
 		  function handleFieldChange(fieldKey: string, value: any) {
 		    if (!entry) return;
@@ -131,6 +180,29 @@ export default function EditEntryPage() {
 		        }
 		      }
 		    }
+
+		    // Hvis dette er en multi-engine / multi-pilot-type (AW169, AW139, AW189, A145, A135)
+		    // og brukeren skriver inn tid (uansett om det er i Total Time eller SE/ME-feltene),
+		    // speiler vi denne tiden til Multi-pilot time, Dual time og Total Time of flight.
+		    const aircraftType = nextValues["aircraft"] ?? entry.values["aircraft"];
+		    const isMultiMpType = isMultiEngineMultiPilotType(aircraftType);
+
+		    const isTimeField =
+		      fieldKey === "totalTime" ||
+		      fieldKey === "singlePilotSeTime" ||
+		      fieldKey === "singlePilotMeTime" ||
+		      fieldKey === "multiPilotTime" ||
+		      fieldKey === "dualTime";
+
+		    if (isMultiMpType && isTimeField) {
+		      const raw = typeof nextValue === "string" ? nextValue : String(nextValue ?? "");
+		      const trimmed = raw.trim();
+		      if (trimmed) {
+		        (nextValues as any).multiPilotTime = trimmed;
+		        (nextValues as any).dualTime = trimmed;
+		        (nextValues as any).totalTime = trimmed;
+		      }
+		    }
 		
 		    setEntry({
 		      ...entry,
@@ -139,21 +211,36 @@ export default function EditEntryPage() {
 		    });
 		  }
 
-  async function handleSave() {
-    if (!entry) return;
-
-    setSaving(true);
-    try {
-      await upsertEntry({
-        ...entry,
-        updatedAt: new Date().toISOString(),
-      });
-      router.push("/app/logbook");
-    } catch (error) {
-      alert(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`);
-      setSaving(false);
-    }
-  }
+	  async function handleSave() {
+	    if (!entry) return;
+	
+	    setSaving(true);
+	    try {
+	      const now = nowIso();
+	
+	      // If this is a brand new entry, generate a fresh ID and create it.
+	      if (entryId === "new") {
+	        const newId = "e_" + Math.random().toString(36).slice(2);
+	        await upsertEntry({
+	          ...entry,
+	          id: newId,
+	          createdAt: now,
+	          updatedAt: now,
+	        });
+	      } else {
+	        // Existing entry: update in-place.
+	        await upsertEntry({
+	          ...entry,
+	          updatedAt: now,
+	        });
+	      }
+	
+	      router.push("/app/logbook");
+	    } catch (error) {
+	      alert(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`);
+	      setSaving(false);
+	    }
+	  }
 
   function handleCancel() {
     router.push("/app/logbook");
