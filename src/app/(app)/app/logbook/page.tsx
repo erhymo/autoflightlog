@@ -14,6 +14,13 @@ function parseDateTime(value: unknown): number {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
+function parseNumeric(value: unknown): number {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const n = parseFloat(String(value).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function LogbookPage() {
   const router = useRouter();
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
@@ -54,62 +61,94 @@ export default function LogbookPage() {
 	    router.push("/app/logbook/edit/new");
 	  }
 
+	  function addEntryBasedOnLast() {
+	    // Start a new entry that will be prefilled based on the most recent flight
+	    // (the edit page decides exactly what to copy).
+	    router.push("/app/logbook/edit/new?basedOn=last");
+	  }
+
   async function handleDelete(entryId: string) {
     await deleteEntry(entryId);
     setDeleteConfirm(null);
     await refresh();
   }
 
-			// Sort entries so newest flights are always shown first (by flight date if available,
-			// otherwise by created/updated timestamp).
-			const sortedEntries = useMemo(
-			  () =>
-			    [...entries].sort((a, b) => {
-			      const timeA = parseDateTime(a.values?.date ?? a.createdAt ?? a.updatedAt);
-			      const timeB = parseDateTime(b.values?.date ?? b.createdAt ?? b.updatedAt);
-			
-			      if (timeA === timeB) {
-			        // Tie-breaker: newer createdAt first
-			        return parseDateTime(a.createdAt) < parseDateTime(b.createdAt) ? 1 : -1;
-			      }
-			
-			      // Newest first
-			      return timeB - timeA;
-			    }),
-			  [entries]
-			);
+				// Sort entries so newest flights are always shown first (by flight date if available,
+				// otherwise by created/updated timestamp).
+				const sortedEntries = useMemo(
+				  () =>
+				    [...entries].sort((a, b) => {
+				      const timeA = parseDateTime(a.values?.date ?? a.createdAt ?? a.updatedAt);
+				      const timeB = parseDateTime(b.values?.date ?? b.createdAt ?? b.updatedAt);
 
-			// Apply client-side filters for registration and aircraft type before paginating.
-			const filteredEntries = useMemo(
-			  () => {
-			    const regFilter = registrationFilter.trim().toLowerCase();
-			    const acFilter = aircraftFilter.trim().toLowerCase();
-			
-			    if (!regFilter && !acFilter) return sortedEntries;
-			
-			    return sortedEntries.filter((entry) => {
-			      const reg = String((entry.values as any)?.registration ?? "").toLowerCase();
-			      const ac = String((entry.values as any)?.aircraft ?? "").toLowerCase();
-			
-			      const matchesReg = !regFilter || reg.includes(regFilter);
-			      const matchesAc = !acFilter || ac.includes(acFilter);
-			
-			      return matchesReg && matchesAc;
-			    });
-			  }, [sortedEntries, registrationFilter, aircraftFilter]
-			);
+				      if (timeA === timeB) {
+				        // Tie-breaker: newer createdAt first
+				        return parseDateTime(a.createdAt) < parseDateTime(b.createdAt) ? 1 : -1;
+				      }
 
-			const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
-			const safePage = totalPages === 0 ? 0 : Math.min(currentPage, totalPages - 1);
+				      // Newest first
+				      return timeB - timeA;
+				    }),
+				  [entries]
+				);
 
-			const pagedEntries = useMemo(
-			  () =>
-			    filteredEntries.slice(
-			      safePage * PAGE_SIZE,
-			      (safePage + 1) * PAGE_SIZE
-			    ),
-			  [filteredEntries, safePage]
-			);
+				// Apply client-side filters for registration and aircraft type before paginating.
+				const filteredEntries = useMemo(
+				  () => {
+				    const regFilter = registrationFilter.trim().toLowerCase();
+				    const acFilter = aircraftFilter.trim().toLowerCase();
+
+				    if (!regFilter && !acFilter) return sortedEntries;
+
+				    return sortedEntries.filter((entry) => {
+				      const reg = String((entry.values as any)?.registration ?? "").toLowerCase();
+				      const ac = String((entry.values as any)?.aircraft ?? "").toLowerCase();
+
+				      const matchesReg = !regFilter || reg.includes(regFilter);
+				      const matchesAc = !acFilter || ac.includes(acFilter);
+
+				      return matchesReg && matchesAc;
+				    });
+				  }, [sortedEntries, registrationFilter, aircraftFilter]
+				);
+			
+				const totals = useMemo(() => {
+				  const result: Record<string, number> = {};
+				  const fields = [
+				    "totalTime",
+				    "picTime",
+				    "copilotTime",
+				    "multiPilotTime",
+				    "dualTime",
+				    "nightTime",
+				    "ifrTime",
+				    "landingsDay",
+				    "landingsNight",
+				  ];
+				
+				  for (const entry of filteredEntries) {
+				    const values = (entry.values as any) ?? {};
+				    for (const field of fields) {
+				      const current = parseNumeric(values[field]);
+				      if (!current) continue;
+				      result[field] = (result[field] ?? 0) + current;
+				    }
+				  }
+				
+				  return result;
+				}, [filteredEntries]);
+			
+				const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
+				const safePage = totalPages === 0 ? 0 : Math.min(currentPage, totalPages - 1);
+			
+				const pagedEntries = useMemo(
+				  () =>
+				    filteredEntries.slice(
+				      safePage * PAGE_SIZE,
+				      (safePage + 1) * PAGE_SIZE
+				    ),
+				  [filteredEntries, safePage]
+				);
 
 			  // Determine which fields are currently active/visible according to the view.
 			  // We respect the saved view (columns/visibleFields) so that Settings fully
@@ -201,64 +240,96 @@ export default function LogbookPage() {
 	    );
 	  }
 
-	  return (
-	    <div className="p-4 md:p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-	          <h1 className="text-xl md:text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
-            Logbook
-          </h1>
-	          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-		            {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
-          </p>
-        </div>
-	        <div className="flex flex-col items-end gap-2">
-	          <div className="flex items-center gap-2">
-	            <button
-	              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
-	              style={{
-	                borderColor: "var(--border-default)",
-	                color: "var(--text-primary)",
-	                backgroundColor: "var(--bg-card)",
-	              }}
-				              disabled={filteredEntries.length === 0 || safePage === 0}
-	              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-	            >
-	              Previous page
-	            </button>
-	            <button
-	              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
-	              style={{
-	                borderColor: "var(--border-default)",
-	                color: "var(--text-primary)",
-	                backgroundColor: "var(--bg-card)",
-	              }}
-				              disabled={filteredEntries.length === 0 || safePage >= totalPages - 1}
-		              onClick={() =>
-		                setCurrentPage((p) =>
-		                  totalPages === 0 ? 0 : Math.min(p + 1, totalPages - 1)
-		                )
-		              }
-	            >
-	              Next page
-	            </button>
-				            <span
-				              className="text-xs ml-2"
-				              style={{ color: "var(--text-secondary)" }}
-				            >
-				              Page {filteredEntries.length === 0 ? 0 : safePage + 1} of {totalPages || 0}
-				            </span>
-	          </div>
-	          <button
-	            className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
-	            style={{ backgroundColor: "var(--aviation-blue)" }}
-	            onClick={addEntry}
-	          >
-	            Add Entry
-	          </button>
+		  return (
+		    <div className="p-4 md:p-8">
+	      {/* Header */}
+	      <div className="flex items-center justify-between mb-6">
+	        <div>
+		          <h1 className="text-xl md:text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+	            Logbook
+	          </h1>
+		          <p className="text-xs md:text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+			            {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
+	          </p>
+		          {filteredEntries.length > 0 && (
+		            <p className="text-[11px] md:text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+		              Totals for current filter:
+		              {typeof totals.totalTime === "number" && totals.totalTime > 0 && (
+		                <span className="ml-1">Total {totals.totalTime.toFixed(1)} h</span>
+		              )}
+		              {typeof totals.picTime === "number" && totals.picTime > 0 && (
+		                <span className="ml-2">PIC {totals.picTime.toFixed(1)} h</span>
+		              )}
+		              {typeof totals.nightTime === "number" && totals.nightTime > 0 && (
+		                <span className="ml-2">Night {totals.nightTime.toFixed(1)} h</span>
+		              )}
+		              {typeof totals.ifrTime === "number" && totals.ifrTime > 0 && (
+		                <span className="ml-2">IFR {totals.ifrTime.toFixed(1)} h</span>
+		              )}
+		              {typeof totals.landingsDay === "number" && totals.landingsDay > 0 && (
+		                <span className="ml-2">LDG day {totals.landingsDay}</span>
+		              )}
+		              {typeof totals.landingsNight === "number" && totals.landingsNight > 0 && (
+		                <span className="ml-2">night {totals.landingsNight}</span>
+		              )}
+		            </p>
+		          )}
 	        </div>
-      </div>
+		        <div className="flex flex-col items-end gap-2">
+		          <div className="flex items-center gap-2">
+		            <button
+		              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
+		              style={{
+		                borderColor: "var(--border-default)",
+		                color: "var(--text-primary)",
+		                backgroundColor: "var(--bg-card)",
+		              }}
+					              disabled={filteredEntries.length === 0 || safePage === 0}
+		              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+		            >
+		              Previous page
+		            </button>
+		            <button
+		              className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors disabled:opacity-50"
+		              style={{
+		                borderColor: "var(--border-default)",
+		                color: "var(--text-primary)",
+		                backgroundColor: "var(--bg-card)",
+		              }}
+					              disabled={filteredEntries.length === 0 || safePage >= totalPages - 1}
+			              onClick={() =>
+			                setCurrentPage((p) =>
+			                  totalPages === 0 ? 0 : Math.min(p + 1, totalPages - 1)
+			                )
+			              }
+		            >
+		              Next page
+		            </button>
+			            <span
+			              className="text-xs ml-2"
+			              style={{ color: "var(--text-secondary)" }}
+			            >
+			              Page {filteredEntries.length === 0 ? 0 : safePage + 1} of {totalPages || 0}
+			            </span>
+		          </div>
+		          <div className="flex gap-2">
+		            <button
+		              className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90"
+		              style={{ backgroundColor: "var(--aviation-blue)" }}
+		              onClick={addEntry}
+		            >
+		              Add new entry
+		            </button>
+		            <button
+		              className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-all hover:bg-gray-50"
+		              style={{ borderColor: "var(--border-default)", color: "var(--aviation-blue)", backgroundColor: "var(--bg-card)" }}
+		              onClick={addEntryBasedOnLast}
+		            >
+		              Add based on last
+		            </button>
+		          </div>
+		        </div>
+	      </div>
 
 	      {/* Filters */}
 	      <div className="mb-4 flex flex-col md:flex-row md:items-end gap-3">
