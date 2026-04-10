@@ -399,17 +399,20 @@ export default function LogbookPage() {
 	                >
 	                  #
 	                </th>
-	                {displayedGroups.map((group) => (
-	                  <th
-	                    key={group.id}
-	                    colSpan={group.columns.length}
-	                    rowSpan={group.columns.length > 1 ? 1 : 2}
-	                    className="text-left px-2 py-2 md:px-4 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
-	                    style={{ color: "var(--text-secondary)" }}
-	                  >
-	                    {group.label}
-	                  </th>
-	                ))}
+	                {displayedGroups.map((group) => {
+	                  const hasSubLabels = group.columns.some((c) => c.subLabel);
+	                  return (
+	                    <th
+	                      key={group.id}
+	                      colSpan={group.columns.length}
+	                      rowSpan={hasSubLabels ? 1 : 2}
+	                      className="text-left px-2 py-2 md:px-4 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
+	                      style={{ color: "var(--text-secondary)" }}
+	                    >
+	                      {group.label}
+	                    </th>
+	                  );
+	                })}
 	                <th
 	                  className="text-left px-2 py-2 md:px-4 md:py-3 font-semibold text-[10px] md:text-xs uppercase tracking-wide"
 	                  style={{ color: "var(--text-secondary)", width: 56 }}
@@ -420,8 +423,9 @@ export default function LogbookPage() {
 	              </tr>
 	              {/* Second header row: sub-labels for grouped columns */}
 	              <tr className="border-b" style={{ borderColor: "var(--border-default)" }}>
-	                {displayedGroups.flatMap((group) =>
-	                  group.columns.length > 1
+	                {displayedGroups.flatMap((group) => {
+	                  const hasSubLabels = group.columns.some((c) => c.subLabel);
+	                  return hasSubLabels
 	                    ? group.columns.map((col) => (
 	                        <th
 	                          key={`${group.id}-${col.fieldId}`}
@@ -431,8 +435,8 @@ export default function LogbookPage() {
 	                          {col.subLabel ?? ""}
 	                        </th>
 	                      ))
-	                    : []
-	                )}
+	                    : [];
+	                })}
 	              </tr>
 	            </thead>
 		            <tbody>
