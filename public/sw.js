@@ -9,7 +9,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-		      .then((cache) => cache.addAll([OFFLINE_URL, "/manifest.webmanifest", "/assets/logo/autoflightlog-icon.svg"]))
+		      .then((cache) =>
+		        cache.addAll([
+		          OFFLINE_URL,
+		          "/manifest.webmanifest",
+		          "/assets/logo/autoflightlog-icon.svg",
+		          "/icons/icon-192.png",
+		          "/icons/icon-512.png",
+		        ])
+		      )
       .then(() => self.skipWaiting())
   );
 });
