@@ -26,22 +26,21 @@ export interface MappedEntry {
  * Parse CSV file content into headers and rows
  */
 export function parseCSV(content: string): ParsedCSV {
-  const lines = content.split(/\r?\n/).filter(line => line.trim());
-  
-  if (lines.length === 0) {
+  const records = parseCSVRecords(content);
+  const nonEmpty = records.filter(fields => fields.some(f => f.trim() !== ""));
+
+  if (nonEmpty.length === 0) {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCSVLine(lines[0]);
+  const headers = nonEmpty[0].map(h => h.trim());
   const rows: CSVRow[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
-    if (values.length === 0) continue;
-
+  for (let i = 1; i < nonEmpty.length; i++) {
+    const values = nonEmpty[i];
     const row: CSVRow = {};
     headers.forEach((header, index) => {
-      row[header] = values[index] || "";
+      row[header] = (values[index] || "").trim();
     });
     rows.push(row);
   }
@@ -50,28 +49,60 @@ export function parseCSV(content: string): ParsedCSV {
 }
 
 /**
- * Parse a single CSV line, handling quoted values
+ * Parse full CSV content into rows of raw fields, honoring quoted values
+ * that span multiple lines and escaped quotes ("") inside quoted fields.
  */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
+function parseCSVRecords(content: string): string[][] {
+  const records: string[][] = [];
+  let row: string[] = [];
   let current = "";
   let inQuotes = false;
+  let rowStarted = false;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (content[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+      continue;
+    }
 
     if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
-      result.push(current.trim());
+      inQuotes = true;
+      rowStarted = true;
+    } else if (char === ",") {
+      row.push(current);
       current = "";
+      rowStarted = true;
+    } else if (char === "\r") {
+      // skip; \n (or end of content) terminates the row
+    } else if (char === "\n") {
+      row.push(current);
+      records.push(row);
+      row = [];
+      current = "";
+      rowStarted = false;
     } else {
       current += char;
+      rowStarted = true;
     }
   }
 
-  result.push(current.trim());
-  return result;
+  if (rowStarted || current !== "" || row.length > 0) {
+    row.push(current);
+    records.push(row);
+  }
+
+  return records;
 }
 
 /**
