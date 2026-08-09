@@ -45,6 +45,10 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      match /knownPlaces/{placeId} {
+        allow read, write: if isOwner(uid);
+      }
+
       // Admin-managed metadata (e.g. the `hidden` flag set from /app/admin).
       // Only ever read/written server-side via the Admin SDK, which bypasses
       // these rules — deny client access outright so a user can't read or

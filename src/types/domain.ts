@@ -81,3 +81,18 @@ export interface Certificate {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * A departure/arrival place name (e.g. "FEDJE", not necessarily an
+ * official airport) the pilot has used before, geo-tagged with the
+ * device position at the time it was last saved. Powers "you are near
+ * a place you have logged before" suggestions when creating a new
+ * entry - see src/lib/geo/geolocation.ts.
+ */
+export interface KnownPlace {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  updatedAt: string;
+}

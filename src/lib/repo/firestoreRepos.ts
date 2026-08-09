@@ -1,7 +1,7 @@
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { getFirebaseClient } from "@/lib/firebase/client";
-import type { Certificate, LogbookEntry, Template, ViewDefinition } from "@/types/domain";
+import type { Certificate, KnownPlace, LogbookEntry, Template, ViewDefinition } from "@/types/domain";
 import {
   collection,
   deleteDoc,
@@ -267,4 +267,19 @@ export async function deleteCertificate(certificateId: string): Promise<void> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   await deleteDoc(doc(db, `users/${uid}/certificates/${certificateId}`));
+}
+
+// ---- Known places (geo-tagged departure/arrival names, for location-based suggestions) ----
+
+export async function listKnownPlaces(): Promise<KnownPlace[]> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  const snaps = await getDocs(collection(db, `users/${uid}/knownPlaces`));
+  return snaps.docs.map((d) => d.data() as KnownPlace);
+}
+
+export async function upsertKnownPlace(place: KnownPlace): Promise<void> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  await setDoc(doc(db, `users/${uid}/knownPlaces/${place.id}`), stripUndefined(place));
 }
