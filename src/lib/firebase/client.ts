@@ -1,6 +1,12 @@
 import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
-import { Firestore, getFirestore } from "firebase/firestore";
+import {
+  Firestore,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 export type FirebaseClient = {
   app: FirebaseApp;
@@ -44,6 +50,31 @@ function getOrInitApp(): FirebaseApp {
   return initializeApp(getFirebaseConfig());
 }
 
+let cachedDb: Firestore | null = null;
+
+/**
+ * Firestore with persistent local (IndexedDB) cache enabled, so entries
+ * created while offline (e.g. right after landing somewhere with no
+ * signal) are queued locally and synced automatically once back online.
+ * Must be initialized once per app instance, before any other Firestore
+ * call, which is why it's memoized here rather than using getFirestore().
+ */
+function getOrInitFirestore(app: FirebaseApp): Firestore {
+  if (cachedDb) return cachedDb;
+  try {
+    cachedDb = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (err) {
+    // Falls back to an in-memory-only Firestore in environments where the
+    // persistent cache can't be set up (e.g. private browsing without
+    // IndexedDB, or a second initialization after HMR in dev).
+    console.warn("Firestore persistent cache unavailable, falling back to in-memory cache.", err);
+    cachedDb = getFirestore(app);
+  }
+  return cachedDb;
+}
+
 /**
  * Firebase Web SDK for client-side usage.
  *
@@ -56,7 +87,7 @@ export function getFirebaseClient(): FirebaseClient {
   return {
     app,
     auth: getAuth(app),
-    db: getFirestore(app),
+    db: getOrInitFirestore(app),
   };
 }
 
