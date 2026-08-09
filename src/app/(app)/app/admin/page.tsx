@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
+import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
+import { useToast } from "@/components/ui/ToastProvider";
 import Link from "next/link";
 
 type AdminUser = {
@@ -19,6 +21,7 @@ type AdminUser = {
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuthUser();
+  const { showToast } = useToast();
   const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
   const isAdmin = emailInAllowlist(user?.email, adminAllowlist);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -26,6 +29,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [pendingDeleteUid, setPendingDeleteUid] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -91,14 +95,7 @@ export default function AdminPage() {
     }
   }
 
-  async function hardDelete(uid: string) {
-    const typed = window.prompt(`Type the UID to permanently delete this user:\n\n${uid}`);
-    if (!typed) return;
-    if (typed !== uid) {
-      window.alert("UID did not match. Aborted.");
-      return;
-    }
-
+  async function confirmHardDelete(uid: string) {
     setError(null);
     try {
       const res = await authedFetch(`/api/admin/users/${uid}/delete`, {
@@ -108,8 +105,11 @@ export default function AdminPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       setUsers((prev) => prev.filter((u) => u.uid !== uid));
+      showToast("User permanently deleted.", "success");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPendingDeleteUid(null);
     }
   }
 
@@ -300,7 +300,7 @@ export default function AdminPage() {
                         {u.disabled ? "Enable" : "Disable"}
                       </button>
                       <button
-                        onClick={() => hardDelete(u.uid)}
+                        onClick={() => setPendingDeleteUid(u.uid)}
                         className="px-3 py-1.5 rounded-md text-xs font-medium"
                         style={{ backgroundColor: "#ef4444", color: "white" }}
                       >
@@ -333,6 +333,16 @@ export default function AdminPage() {
             Load more
           </button>
         </div>
+      )}
+
+      {pendingDeleteUid && (
+        <TypedConfirmModal
+          title="Permanently delete user"
+          confirmLabel="Delete permanently"
+          steps={[{ prompt: `Type the UID to permanently delete this user:\n\n${pendingDeleteUid}`, requiredText: pendingDeleteUid }]}
+          onCancel={() => setPendingDeleteUid(null)}
+          onConfirm={() => confirmHardDelete(pendingDeleteUid)}
+        />
       )}
     </div>
   );

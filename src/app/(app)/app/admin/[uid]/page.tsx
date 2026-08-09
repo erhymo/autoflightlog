@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
+import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type AdminUser = {
   uid: string;
@@ -29,12 +31,14 @@ export default function AdminUserDetailPage() {
   const router = useRouter();
   const { uid } = useParams<{ uid: string }>();
   const { user, loading: authLoading } = useAuthUser();
+  const { showToast } = useToast();
   const adminAllowlist = parseAllowlist(process.env.NEXT_PUBLIC_ADMIN_EMAIL_ALLOWLIST);
   const isAdmin = emailInAllowlist(user?.email, adminAllowlist);
 
   const [data, setData] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   async function authedFetch(path: string, init?: RequestInit) {
     if (!user) throw new Error("Not signed in");
@@ -91,18 +95,6 @@ export default function AdminUserDetailPage() {
   }
 
   async function hardDelete() {
-    const typedUid = window.prompt(`Type the UID to permanently delete this user:\n\n${uid}`);
-    if (!typedUid) return;
-    if (typedUid !== uid) {
-      window.alert("UID did not match. Aborted.");
-      return;
-    }
-    const typed = window.prompt('Second confirmation: type DELETE to confirm permanent deletion.');
-    if (typed !== "DELETE") {
-      window.alert("Confirmation text did not match. Aborted.");
-      return;
-    }
-
     setError(null);
     try {
       const res = await authedFetch(`/api/admin/users/${uid}/delete`, {
@@ -111,9 +103,12 @@ export default function AdminUserDetailPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      showToast("User permanently deleted.", "success");
       router.push("/app/admin");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setConfirmingDelete(false);
     }
   }
 
@@ -284,7 +279,7 @@ export default function AdminUserDetailPage() {
             {data?.user.disabled ? "Enable" : "Disable"}
           </button>
           <button
-            onClick={hardDelete}
+            onClick={() => setConfirmingDelete(true)}
             disabled={!data}
             className="px-3 py-2 rounded-md text-sm font-medium"
             style={{ backgroundColor: "#ef4444", color: "white" }}
@@ -366,6 +361,19 @@ export default function AdminUserDetailPage() {
           </table>
         </div>
       </div>
+
+      {confirmingDelete && (
+        <TypedConfirmModal
+          title="Permanently delete user"
+          confirmLabel="Delete permanently"
+          steps={[
+            { prompt: `Type the UID to permanently delete this user:\n\n${uid}`, requiredText: uid },
+            { prompt: "Second confirmation: type DELETE to confirm permanent deletion.", requiredText: "DELETE" },
+          ]}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={hardDelete}
+        />
+      )}
     </div>
   );
 }
