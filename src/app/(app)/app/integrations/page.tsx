@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId } from "@/lib/repo/firestoreRepos";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface IntegrationRequest {
   id: string;
@@ -10,11 +11,15 @@ interface IntegrationRequest {
   crewId: string;
   createdAt: string;
   status: "draft" | "sent";
+  setupToken: string;
+}
+
+function setupLinkFor(request: IntegrationRequest): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "[APP_URL]";
+  return `${origin}/employer/setup/${request.id}?token=${request.setupToken}`;
 }
 
 function generateEmailDraft(request: IntegrationRequest): string {
-	const origin = typeof window !== "undefined" ? window.location.origin : "[APP_URL]";
-
   return `Subject: API Integration Request for AutoFlightLog Flight Logbook Data
 
 Dear ${request.companyName} IT Team,
@@ -32,9 +37,9 @@ Requirements:
 - All data transmission will be secure and encrypted
 
 To set up this integration, please visit:
-${origin}/employer/setup/${request.id}
+${setupLinkFor(request)}
 
-This link contains instructions for configuring the API endpoint and generating secure credentials.
+This link is unique to this request and lets you configure the API endpoint without needing my AutoFlightLog account. Please don't forward it.
 
 If you have any questions or need additional information, please don't hesitate to contact me.
 
@@ -47,6 +52,7 @@ interface RequestWithConnector extends IntegrationRequest {
 }
 
 export default function IntegrationsPage() {
+  const { showToast } = useToast();
   const [requests, setRequests] = useState<RequestWithConnector[]>([]);
   const [companyName, setCompanyName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -91,6 +97,7 @@ export default function IntegrationsPage() {
       crewId,
       createdAt: new Date().toISOString(),
       status: "draft",
+      setupToken: crypto.randomUUID(),
     };
 
     await addIntegrationRequest(request);
@@ -107,7 +114,7 @@ export default function IntegrationsPage() {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+    showToast("Copied to clipboard!", "success");
   }
 
   function getRequestStatus(req: RequestWithConnector): "pending" | "configured" | "active" {
@@ -427,7 +434,7 @@ export default function IntegrationsPage() {
                 <div className="flex gap-2">
                   <input
                     readOnly
-                    value={`http://localhost:3000/employer/setup/${selectedRequest.id}`}
+                    value={setupLinkFor(selectedRequest)}
                     className="flex-1 rounded-lg border p-3 text-sm font-mono"
                     style={{
                       borderColor: "var(--border-default)",
@@ -436,9 +443,7 @@ export default function IntegrationsPage() {
                     }}
                   />
                   <button
-                    onClick={() =>
-                      copyToClipboard(`http://localhost:3000/employer/setup/${selectedRequest.id}`)
-                    }
+                    onClick={() => copyToClipboard(setupLinkFor(selectedRequest))}
                     className="rounded-lg px-4 py-2 font-medium text-sm text-white transition-all"
                     style={{ backgroundColor: "var(--aviation-blue)" }}
                     onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}

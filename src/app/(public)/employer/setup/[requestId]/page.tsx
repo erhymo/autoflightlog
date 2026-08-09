@@ -1,18 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { useAuthUser } from "@/lib/firebase/useAuthUser";
-import { listIntegrationRequests, upsertConnector, getConnectorByRequestId } from "@/lib/repo/firestoreRepos";
+import { useParams, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface IntegrationRequest {
-  id: string;
   companyName: string;
   contactEmail: string;
   crewId: string;
-  createdAt: string;
-  status: "draft" | "sent";
 }
 
 interface Connector {
@@ -27,162 +22,100 @@ interface Connector {
   lastTestAt?: string;
   lastError?: string;
   lastSyncAt?: string;
-	lastSyncAttemptAt?: string;
+  lastSyncAttemptAt?: string;
   lastSyncStatus?: string;
-	lastSyncError?: string;
-	autoSyncEnabled?: boolean;
-	syncIntervalMinutes?: number;
-	nextSyncAt?: string;
-	consecutiveFailures?: number;
+  lastSyncError?: string;
+  autoSyncEnabled?: boolean;
+  syncIntervalMinutes?: number;
+  nextSyncAt?: string;
+  consecutiveFailures?: number;
 }
 
 export default function EmployerSetupPage() {
   const params = useParams();
   const requestId = params.requestId as string;
-
-  const { user, loading: authLoading, error: authError } = useAuthUser();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const { showToast } = useToast();
 
   const [request, setRequest] = useState<IntegrationRequest | null>(null);
   const [connector, setConnector] = useState<Connector | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-	const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [authType, setAuthType] = useState<"api_key" | "bearer_token">("api_key");
   const [secret, setSecret] = useState("");
 
   useEffect(() => {
-    if (!user) return;
+    if (!token) {
+      setLoadError("This link is missing its setup token. Ask the pilot to resend the setup link.");
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
-
     (async () => {
-			try {
-				setLoadError(null);
-				setNotFound(false);
-				const requests = await listIntegrationRequests();
-				const found = requests.find((r: any) => r.id === requestId);
+      try {
+        setLoadError(null);
+        const res = await fetch(`/api/employer/setup/${requestId}?token=${encodeURIComponent(token)}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+        if (cancelled) return;
 
-				if (cancelled) return;
-				if (!found) {
-					setNotFound(true);
-					return;
-				}
-
-				setRequest(found as IntegrationRequest);
-
-				const existingConnector = await getConnectorByRequestId(requestId);
-				if (cancelled) return;
-				if (existingConnector) {
-					setConnector(existingConnector);
-					setApiBaseUrl(existingConnector.apiBaseUrl);
-					setAuthType(existingConnector.authType);
-					setSecret(existingConnector.secret);
-				}
-			} catch (err) {
-				console.error("Employer setup load failed", err);
-				if (cancelled) return;
-				const code = typeof (err as any)?.code === "string" ? (err as any).code : null;
-				const message = err instanceof Error ? err.message : String(err);
-				setLoadError(code ? `${code}: ${message}` : message);
-			} finally {
-				if (!cancelled) setLoading(false);
-			}
+        setRequest(json.request);
+        if (json.connector) {
+          setConnector(json.connector);
+          setApiBaseUrl(json.connector.apiBaseUrl);
+          setAuthType(json.connector.authType);
+          setSecret(json.connector.secret);
+        }
+      } catch (err) {
+        console.error("Employer setup load failed", err);
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [requestId, user]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    );
-  }
-
-  if (authError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
-          <h1 className="text-xl font-semibold text-red-900">Authentication Error</h1>
-          <p className="text-sm text-red-600 mt-2">{authError.message}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-2xl rounded-2xl border border-gray-200 p-6 bg-white">
-          <h1 className="text-xl font-semibold text-gray-900">Sign in required</h1>
-          <p className="text-sm text-gray-600 mt-2">
-            This setup page is tied to a pilot account. Please sign in to continue.
-          </p>
-          <div className="mt-4">
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium"
-              style={{ backgroundColor: "var(--aviation-blue)", color: "white" }}
-            >
-              Go to Login
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [requestId, token]);
 
   async function handleTestConnection() {
-    if (!request) return;
-
-    let status: "inactive" | "error" = "inactive";
-    let lastError: string | null = null;
-
-    if (!apiBaseUrl.startsWith("https://")) {
-      status = "error";
-      lastError = "Base URL must start with https://";
-    } else if (secret.length < 8) {
-      status = "error";
-      lastError = "Token too short";
+    try {
+      const res = await fetch(`/api/employer/setup/${requestId}/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, apiBaseUrl, authType, secret }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setConnector(json.connector);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
     }
-
-    const newConnector: Connector = {
-      id: connector?.id || "conn_" + Math.random().toString(36).slice(2),
-      requestId,
-      companyName: request.companyName,
-      crewId: request.crewId,
-      apiBaseUrl,
-      authType,
-      secret,
-      status,
-      lastTestAt: new Date().toISOString(),
-      lastError: lastError || undefined,
-    };
-
-    await upsertConnector(newConnector);
-    setConnector(newConnector);
   }
 
   async function handleActivate() {
     if (!connector || connector.lastError) {
-      alert("Please test the connection successfully first");
+      showToast("Please test the connection successfully first", "error");
       return;
     }
-
-    const updatedConnector: Connector = {
-      ...connector,
-      status: "active",
-			autoSyncEnabled: true,
-			syncIntervalMinutes: connector.syncIntervalMinutes ?? 12 * 60,
-			nextSyncAt: new Date().toISOString(),
-    };
-
-    await upsertConnector(updatedConnector);
-    setConnector(updatedConnector);
+    try {
+      const res = await fetch(`/api/employer/setup/${requestId}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setConnector(json.connector);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
+    }
   }
 
   if (loading) {
@@ -193,25 +126,12 @@ export default function EmployerSetupPage() {
     );
   }
 
-	if (loadError) {
-		return (
-			<div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-				<div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
-					<h1 className="text-xl font-semibold text-red-900">Could not load setup</h1>
-					<p className="text-sm text-red-600 mt-2">{loadError}</p>
-				</div>
-			</div>
-		);
-	}
-
-  if (notFound) {
+  if (loadError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
         <div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
-          <h1 className="text-xl font-semibold text-red-900">Request Not Found</h1>
-          <p className="text-sm text-red-600 mt-2">
-            The integration request ID "{requestId}" does not exist.
-          </p>
+          <h1 className="text-xl font-semibold text-red-900">Could not load setup</h1>
+          <p className="text-sm text-red-600 mt-2">{loadError}</p>
         </div>
       </div>
     );
@@ -373,26 +293,26 @@ export default function EmployerSetupPage() {
               <div className="mt-4 space-y-3">
                 <div className="p-4 bg-white rounded-xl border border-green-200">
                   <p className="text-green-900 font-medium">
-	                    ✓ Integration is active. Automatic sync is coming soon.
+                    ✓ Integration is active. Automatic sync is coming soon.
                   </p>
                 </div>
 
-	                <div className="p-4 bg-white rounded-xl border border-gray-200">
-	                  <h3 className="font-semibold text-gray-900 mb-1">Sync</h3>
-	                  <p className="text-sm text-gray-700">This version does not sync flight data yet.</p>
+                <div className="p-4 bg-white rounded-xl border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-1">Sync</h3>
+                  <p className="text-sm text-gray-700">This version does not sync flight data yet.</p>
 
-	                  {connector.lastSyncAttemptAt && (
-	                    <div className="text-sm text-gray-600">
-	                      Last attempt: {new Date(connector.lastSyncAttemptAt).toLocaleString()}
-	                      {connector.lastSyncStatus && (
-	                        <span className="ml-2 text-gray-700">({connector.lastSyncStatus})</span>
-	                      )}
-	                    </div>
-	                  )}
-	                  {connector.lastSyncStatus === "error" && connector.lastSyncError && (
-	                    <div className="text-sm text-red-700 mt-1">Sync error: {connector.lastSyncError}</div>
-	                  )}
-	                </div>
+                  {connector.lastSyncAttemptAt && (
+                    <div className="text-sm text-gray-600">
+                      Last attempt: {new Date(connector.lastSyncAttemptAt).toLocaleString()}
+                      {connector.lastSyncStatus && (
+                        <span className="ml-2 text-gray-700">({connector.lastSyncStatus})</span>
+                      )}
+                    </div>
+                  )}
+                  {connector.lastSyncStatus === "error" && connector.lastSyncError && (
+                    <div className="text-sm text-red-700 mt-1">Sync error: {connector.lastSyncError}</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -401,4 +321,3 @@ export default function EmployerSetupPage() {
     </div>
   );
 }
-
