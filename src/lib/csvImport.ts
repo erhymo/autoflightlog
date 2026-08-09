@@ -1,4 +1,5 @@
-import { FIELD_CATALOG } from "@/types/fieldCatalog";
+import { FIELD_CATALOG, FieldDefinition } from "@/types/fieldCatalog";
+import { normalizeDurationMinutes } from "@/lib/logbook/timeUnits";
 
 export interface CSVRow {
   [key: string]: string;
@@ -189,7 +190,7 @@ export function mapRowsToEntries(
 
       // Convert value based on field type
       try {
-        values[mapping.fieldId] = convertValue(rawValue, field.type);
+        values[mapping.fieldId] = convertValue(rawValue, field);
       } catch (error) {
         warnings.push(`Invalid ${field.name}: ${rawValue}`);
       }
@@ -199,24 +200,37 @@ export function mapRowsToEntries(
   });
 }
 
-function convertValue(value: string, type: string): any {
+const DURATION_TIME_CATEGORIES = new Set(["time"]);
+
+function isDurationField(field: FieldDefinition): boolean {
+  return DURATION_TIME_CATEGORIES.has(field.category ?? "") || field.id === "syntheticTime";
+}
+
+function convertValue(value: string, field: FieldDefinition): any {
   const trimmed = value.trim();
 
-  switch (type) {
+  switch (field.type) {
     case "number":
+      if (isDurationField(field)) {
+        // Flight-duration fields are stored in minutes; auto-detect and
+        // convert values imported from decimal-hours-based logbooks
+        // (e.g. "1.5") instead of assuming every source uses minutes too.
+        if (!/^-?[0-9]+([.,][0-9]+)?$/.test(trimmed)) throw new Error("Invalid number");
+        return normalizeDurationMinutes(trimmed);
+      }
       const num = parseFloat(trimmed);
       if (isNaN(num)) throw new Error("Invalid number");
       return num;
-    
+
     case "date":
       // Try to parse various date formats
       const date = new Date(trimmed);
       if (isNaN(date.getTime())) throw new Error("Invalid date");
       return date.toISOString().split("T")[0];
-    
+
     case "checkbox":
       return ["true", "yes", "1", "x"].includes(trimmed.toLowerCase());
-    
+
     default:
       return trimmed;
   }

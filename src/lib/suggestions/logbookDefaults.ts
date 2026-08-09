@@ -52,6 +52,35 @@ export function getFieldSuggestions(
   return ranked;
 }
 
+/**
+ * Arrival suggestions ranked by places actually flown to from the given
+ * departure before, falling back to the general most-used list once the
+ * route-specific matches run out - the pilot's own history already
+ * encodes which routes are common, so use it instead of a flat list.
+ */
+export function getRouteAwareArrivalSuggestions(
+  entries: LogbookEntry[],
+  departure: string,
+  limit = 8
+): string[] {
+  const dep = departure.trim().toUpperCase();
+  if (!dep) return getFieldSuggestions(entries, "arrival", limit);
+
+  const matchingDeparture = entries.filter(
+    (e) => String((e.values as any)?.departure ?? "").trim().toUpperCase() === dep
+  );
+  const fromRoute = getFieldSuggestions(matchingDeparture, "arrival", limit);
+  if (fromRoute.length >= limit) return fromRoute;
+
+  const general = getFieldSuggestions(entries, "arrival", limit);
+  const merged = [...fromRoute];
+  for (const candidate of general) {
+    if (merged.length >= limit) break;
+    if (!merged.includes(candidate)) merged.push(candidate);
+  }
+  return merged;
+}
+
 function getMostRecentEntry(entries: LogbookEntry[]): LogbookEntry | null {
   let best: LogbookEntry | null = null;
   for (const e of entries) {

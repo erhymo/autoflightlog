@@ -27,18 +27,18 @@ export const EASA_FIELD_CATALOG: FieldDefinition[] = [
 	  // Pilot / crew
 	  { id: "pic", key: "pic", name: "Name of PIC", label: "Name of PIC", type: "text", category: "crew", group: "Crew" },
 
-	  // Flight times (hours)
-	  { id: "singlePilotSeTime", key: "singlePilotSeTime", name: "Single-pilot time SE", label: "SE (single-pilot)", type: "number", category: "time", group: "Time" },
-	  { id: "singlePilotMeTime", key: "singlePilotMeTime", name: "Single-pilot time ME", label: "ME (single-pilot)", type: "number", category: "time", group: "Time" },
-	  { id: "multiPilotTime", key: "multiPilotTime", name: "Multi-pilot time", label: "Multi-pilot", type: "number", category: "time", group: "Time" },
-	  { id: "turbineTime", key: "turbineTime", name: "Turbine time", label: "Turbine", type: "number", category: "time", group: "Time" },
-	  { id: "totalTime", key: "totalTime", name: "Total Time", label: "Total Time", type: "number", category: "time", group: "Time" },
-	  { id: "picTime", key: "picTime", name: "PIC Time", label: "PIC Time", type: "number", category: "time", group: "Time" },
-	  { id: "copilotTime", key: "copilotTime", name: "Co-Pilot Time", label: "Co-Pilot Time", type: "number", category: "time", group: "Time" },
-	  { id: "dualTime", key: "dualTime", name: "Dual Time", label: "Dual Time", type: "number", category: "time", group: "Time" },
-	  { id: "instructorTime", key: "instructorTime", name: "Instructor Time", label: "Instructor Time", type: "number", category: "time", group: "Time" },
-	  { id: "nightTime", key: "nightTime", name: "Night Time", label: "Night Time", type: "number", category: "time", group: "Time" },
-	  { id: "ifrTime", key: "ifrTime", name: "IFR Time", label: "IFR Time", type: "number", category: "time", group: "Time" },
+	  // Flight times, all stored and entered in whole minutes (see src/lib/logbook/timeUnits.ts)
+	  { id: "singlePilotSeTime", key: "singlePilotSeTime", name: "Single-pilot time SE (min)", label: "SE (single-pilot, min)", type: "number", category: "time", group: "Time" },
+	  { id: "singlePilotMeTime", key: "singlePilotMeTime", name: "Single-pilot time ME (min)", label: "ME (single-pilot, min)", type: "number", category: "time", group: "Time" },
+	  { id: "multiPilotTime", key: "multiPilotTime", name: "Multi-pilot time (min)", label: "Multi-pilot (min)", type: "number", category: "time", group: "Time" },
+	  { id: "turbineTime", key: "turbineTime", name: "Turbine time (min)", label: "Turbine (min)", type: "number", category: "time", group: "Time" },
+	  { id: "totalTime", key: "totalTime", name: "Total Time (min)", label: "Total Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "picTime", key: "picTime", name: "PIC Time (min)", label: "PIC Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "copilotTime", key: "copilotTime", name: "Co-Pilot Time (min)", label: "Co-Pilot Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "dualTime", key: "dualTime", name: "Dual Time (min)", label: "Dual Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "instructorTime", key: "instructorTime", name: "Instructor Time (min)", label: "Instructor Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "nightTime", key: "nightTime", name: "Night Time (min)", label: "Night Time (min)", type: "number", category: "time", group: "Time" },
+	  { id: "ifrTime", key: "ifrTime", name: "IFR Time (min)", label: "IFR Time (min)", type: "number", category: "time", group: "Time" },
 
 	  // Landings
 	  { id: "landingsDay", key: "landingsDay", name: "Landings Day", label: "Landings Day", type: "number", category: "landings", group: "Landings" },
@@ -47,7 +47,7 @@ export const EASA_FIELD_CATALOG: FieldDefinition[] = [
 	  // Synthetic training devices session
 	  { id: "syntheticDate", key: "syntheticDate", name: "Synthetic training date", label: "Date", type: "date", category: "training", group: "Synthetic training" },
 	  { id: "syntheticType", key: "syntheticType", name: "Synthetic training type", label: "Type", type: "text", category: "training", group: "Synthetic training" },
-	  { id: "syntheticTime", key: "syntheticTime", name: "Synthetic training time", label: "Time", type: "number", category: "training", group: "Synthetic training" },
+	  { id: "syntheticTime", key: "syntheticTime", name: "Synthetic training time (min)", label: "Time (min)", type: "number", category: "training", group: "Synthetic training" },
 
 	  // Other
 	  { id: "remarks", key: "remarks", name: "Remarks", label: "Remarks", type: "text", category: "other", group: "Other" },

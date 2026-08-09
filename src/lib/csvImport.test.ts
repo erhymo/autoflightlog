@@ -67,11 +67,32 @@ describe("mapCSVColumns", () => {
 
 describe("mapRowsToEntries", () => {
   it("converts values according to field type and flags invalid numbers", () => {
-    const rows = [{ Date: "2026-08-01", "Total Time": "not-a-number" }];
-    const mappings = mapCSVColumns(["Date", "Total Time"]);
+    const rows = [{ Date: "2026-08-01", "Total Time (min)": "not-a-number" }];
+    const mappings = mapCSVColumns(["Date", "Total Time (min)"]);
     const [entry] = mapRowsToEntries(rows, mappings);
     expect(entry.values.date).toBe("2026-08-01");
     expect(entry.values.totalTime).toBeUndefined();
-    expect(entry.warnings).toEqual(["Invalid Total Time: not-a-number"]);
+    expect(entry.warnings).toEqual(["Invalid Total Time (min): not-a-number"]);
+  });
+
+  it("treats a whole-number Total Time as already being minutes", () => {
+    const rows = [{ "Total Time (min)": "65" }];
+    const mappings = mapCSVColumns(["Total Time (min)"]);
+    const [entry] = mapRowsToEntries(rows, mappings);
+    expect(entry.values.totalTime).toBe(65);
+  });
+
+  it("detects a decimal-hours Total Time and converts it to minutes", () => {
+    const rows = [{ "Total Time (min)": "1.5" }];
+    const mappings = mapCSVColumns(["Total Time (min)"]);
+    const [entry] = mapRowsToEntries(rows, mappings);
+    expect(entry.values.totalTime).toBe(90);
+  });
+
+  it("does not apply minute normalization to non-duration number fields", () => {
+    const rows = [{ "Landings Day": "1.5" }];
+    const mappings = mapCSVColumns(["Landings Day"]);
+    const [entry] = mapRowsToEntries(rows, mappings);
+    expect(entry.values.landingsDay).toBe(1.5);
   });
 });

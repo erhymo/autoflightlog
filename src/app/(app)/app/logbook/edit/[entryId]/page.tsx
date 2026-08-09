@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { getEntry, upsertEntry, getTemplate, listEntries } from "@/lib/repo/firestoreRepos";
-import { LogbookEntry, Template } from "@/types/domain";
+import { getEntry, upsertEntry, getTemplate, listEntries, listKnownPlaces, upsertKnownPlace } from "@/lib/repo/firestoreRepos";
+import { LogbookEntry, Template, KnownPlace } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
-import { getFieldSuggestions, getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
+import { getFieldSuggestions, getPrefillValuesForNewEntry, getRouteAwareArrivalSuggestions } from "@/lib/suggestions/logbookDefaults";
 import { findDuplicateEntry } from "@/lib/duplicateDetection";
+import { computeTotalTimeMinutes, normalizeDurationMinutes } from "@/lib/logbook/timeUnits";
+import { requestCurrentPosition, findNearestPlace, GeoPosition } from "@/lib/geo/geolocation";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Banner } from "@/components/ui/Banner";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert, Pencil, MapPin } from "lucide-react";
 
 function findMostRecentAircraftForRegistration(
   entries: LogbookEntry[],
@@ -68,16 +70,6 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function parseTimeToMinutes(value: unknown): number | null {
-  if (!value) return null;
-  const str = String(value);
-  const [h, m] = str.split(":");
-  const hours = Number(h);
-  const minutes = Number(m);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-  return hours * 60 + minutes;
-}
-
 function parseNumber(value: unknown): number {
   if (value === null || value === undefined || value === "") return 0;
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -99,18 +91,22 @@ function computeValidationWarnings(entry: LogbookEntry): string[] {
   const landingsDay = parseNumber(values.landingsDay);
   const landingsNight = parseNumber(values.landingsNight);
 
+  // All time fields are whole minutes; allow a 1-minute tolerance for
+  // incidental rounding rather than comparing for an exact match.
+  const ROUNDING_TOLERANCE_MINUTES = 1;
+
   const sumRoleTimes = pic + copilot + multiPilot + dual;
-  if (total > 0 && sumRoleTimes > total + 0.05) {
+  if (total > 0 && sumRoleTimes > total + ROUNDING_TOLERANCE_MINUTES) {
     warnings.push(
       "Sum of PIC / Co-pilot / Multi-pilot / Dual time is greater than Total Time of flight."
     );
   }
 
-  if (night > total + 0.01) {
+  if (night > total + ROUNDING_TOLERANCE_MINUTES) {
     warnings.push("Night time is greater than Total Time of flight.");
   }
 
-  if (ifr > total + 0.01) {
+  if (ifr > total + ROUNDING_TOLERANCE_MINUTES) {
     warnings.push("IFR time is greater than Total Time of flight.");
   }
 
@@ -135,6 +131,8 @@ export default function EditEntryPage() {
   const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [knownPlaces, setKnownPlaces] = useState<KnownPlace[]>([]);
+  const [position, setPosition] = useState<GeoPosition | null>(null);
 
 		  useEffect(() => {
 	    let cancelled = false;
@@ -146,11 +144,20 @@ export default function EditEntryPage() {
 		        // memory using sensible defaults, and only persist it if the user
 		        // presses Save.
 		        if (entryId === "new") {
-		          const [templateData, entriesData] = await Promise.all([
+		          const [templateData, entriesData, knownPlacesData] = await Promise.all([
 		            getTemplate("tmpl_easa_default"),
 		            listEntries(),
+		            listKnownPlaces(),
 		          ]);
 		          if (cancelled) return;
+		          setKnownPlaces(knownPlacesData);
+
+		          // Ask for location once per visit to a "new entry" page - this is
+		          // what triggers the browser's permission prompt the first time.
+		          // Silently does nothing if denied or unavailable.
+		          void requestCurrentPosition().then((pos) => {
+		            if (!cancelled) setPosition(pos);
+		          });
 		
 		          let values = getPrefillValuesForNewEntry(entriesData);
 		
@@ -339,21 +346,15 @@ export default function EditEntryPage() {
 		        fieldKey === "departureTime" ? nextValue : nextValues["departureTime"] ?? entry.values["departureTime"];
 		      const arrival =
 		        fieldKey === "arrivalTime" ? nextValue : nextValues["arrivalTime"] ?? entry.values["arrivalTime"];
-		
-		      const depMinutes = parseTimeToMinutes(departure);
-		      const arrMinutes = parseTimeToMinutes(arrival);
+
 		      const hasManualTotalOverride =
 		        nextManualOverrides.totalTime === true || entry.manualOverrides?.totalTime === true;
-		
-		      if (depMinutes != null && arrMinutes != null && !hasManualTotalOverride) {
-		        let diff = arrMinutes - depMinutes;
-		        if (diff < 0) {
-		          // Crossed midnight: assume same-day plus wrap.
-		          diff += 24 * 60;
+
+		      if (!hasManualTotalOverride) {
+		        const minutes = computeTotalTimeMinutes(departure, arrival);
+		        if (minutes != null) {
+		          (nextValues as any).totalTime = minutes;
 		        }
-		        const hours = diff / 60;
-		        const rounded = Math.round(hours * 10) / 10;
-		        (nextValues as any).totalTime = rounded;
 		      }
 		    }
 
@@ -379,7 +380,25 @@ export default function EditEntryPage() {
 		        (nextValues as any).totalTime = trimmed;
 		      }
 		    }
-		
+
+		    // For ordinary single-pilot flights, PIC Time is almost always the
+		    // same as Total Time of flight - auto-fill it whenever Total Time
+		    // changes (directly, or via the departure/arrival calculation
+		    // above), unless the pilot has manually overridden PIC Time on
+		    // this entry. Multi-pilot aircraft are excluded since PIC time
+		    // there depends on crew role, not just block time.
+		    const totalTimeJustChanged =
+		      fieldKey === "totalTime" || fieldKey === "departureTime" || fieldKey === "arrivalTime";
+		    const hasManualPicOverride =
+		      nextManualOverrides.picTime === true || entry.manualOverrides?.picTime === true;
+
+		    if (!isMultiMpType && totalTimeJustChanged && !hasManualPicOverride) {
+		      const effectiveTotalTime = (nextValues as any).totalTime;
+		      if (effectiveTotalTime !== undefined && effectiveTotalTime !== null && effectiveTotalTime !== "") {
+		        (nextValues as any).picTime = effectiveTotalTime;
+		      }
+		    }
+
 		    setEntry({
 		      ...entry,
 		      values: nextValues,
@@ -387,13 +406,41 @@ export default function EditEntryPage() {
 		    });
 		  }
 
+	  function slugifyPlaceName(name: string): string {
+	    return name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+	  }
+
+	  // Learn the pilot's current position against whichever departure/arrival
+	  // place names are set on this entry, so a future flight logged nearby
+	  // can suggest them - see the "near you" suggestion in renderFieldRow.
+	  async function learnKnownPlaces() {
+	    if (!position || !entry) return;
+	    const names = [entry.values["departure"], entry.values["arrival"]]
+	      .map((v) => (typeof v === "string" ? v.trim().toUpperCase() : ""))
+	      .filter((v) => v.length > 0);
+
+	    await Promise.all(
+	      Array.from(new Set(names)).map((name) =>
+	        upsertKnownPlace({
+	          id: slugifyPlaceName(name),
+	          name,
+	          lat: position.lat,
+	          lon: position.lon,
+	          updatedAt: nowIso(),
+	        }).catch(() => {
+	          // Best-effort only - never block saving the flight entry on this.
+	        })
+	      )
+	    );
+	  }
+
 	  async function handleSave() {
 	    if (!entry) return;
-	
+
 	    setSaving(true);
 	    try {
 	      const now = nowIso();
-	
+
 	      // If this is a brand new entry, generate a fresh ID and create it.
 	      if (entryId === "new") {
 	        const newId = "e_" + Math.random().toString(36).slice(2);
@@ -410,7 +457,9 @@ export default function EditEntryPage() {
 	          updatedAt: now,
 	        });
 	      }
-	
+
+	      void learnKnownPlaces();
+
 	      router.push("/app/logbook");
 	    } catch (error) {
 	      showToast(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
@@ -512,11 +561,25 @@ export default function EditEntryPage() {
 		        />
 		      );
 		    } else if (fieldDef.type === "number") {
+		      const isDurationField = fieldDef.category === "time" || fieldKey === "syntheticTime";
 		      fieldControl = (
 		        <input
 		          type="number"
+		          step={1}
+		          min={0}
 		          value={value}
 		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+		          onBlur={(e) => {
+		            // Safety net: if a duration field was typed as decimal
+		            // hours out of habit (e.g. "1.5"), normalize it to
+		            // minutes once the pilot moves on, instead of silently
+		            // saving the wrong unit.
+		            if (!isDurationField) return;
+		            const normalized = normalizeDurationMinutes(e.target.value);
+		            if (e.target.value !== "" && String(normalized) !== String(value)) {
+		              handleFieldChange(fieldKey, normalized);
+		            }
+		          }}
 		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
 		          style={{ color: "var(--text-primary)" }}
 		        />
@@ -543,7 +606,10 @@ export default function EditEntryPage() {
 		        />
 		      );
 		    } else {
-		      const rawSuggestions = getFieldSuggestions(allEntries, fieldKey, 8);
+		      const rawSuggestions =
+		        fieldKey === "arrival"
+		          ? getRouteAwareArrivalSuggestions(allEntries, String(entry.values["departure"] ?? ""), 8)
+		          : getFieldSuggestions(allEntries, fieldKey, 8);
 		      const inputLower = String(value ?? "").trim().toLowerCase();
 		      const suggestions = [...rawSuggestions].sort((a, b) => {
 		        const aLower = a.toLowerCase();
@@ -554,9 +620,32 @@ export default function EditEntryPage() {
 		        if (!aPrefix && bPrefix) return 1;
 		        return aLower.localeCompare(bLower);
 		      });
-		
+
+		      // "Near you" suggestion: only for place fields, and only when
+		      // geolocation is available and points to somewhere the pilot
+		      // has logged a flight from/to before (see learnKnownPlaces).
+		      const isPlaceField = fieldKey === "departure" || fieldKey === "arrival";
+		      const nearestPlace = isPlaceField && position ? findNearestPlace(position, knownPlaces) : null;
+		      const showNearestPlace = !!nearestPlace && nearestPlace.name !== inputLower.toUpperCase();
+
 		      fieldControl = (
 		        <div className="space-y-2">
+		          {showNearestPlace && nearestPlace && (
+		            <button
+		              type="button"
+		              onClick={() => handleFieldChange(fieldKey, nearestPlace.name)}
+		              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm border"
+		              style={{
+		                borderColor: "var(--aviation-blue)",
+		                backgroundColor: "var(--selected-tint)",
+		                color: "var(--aviation-blue)",
+		              }}
+		            >
+		              <MapPin size={13} strokeWidth={2.5} />
+		              Near you: {nearestPlace.name} ({nearestPlace.distanceKm.toFixed(1)} km) - tap to fill
+		            </button>
+		          )}
+
 		          {suggestions.length > 0 && (
 		            <div className="flex flex-wrap gap-2">
 		              {suggestions.map((s) => (
@@ -608,10 +697,10 @@ export default function EditEntryPage() {
 		
 		        {isManuallyEdited ? (
 		          <p
-		            className="text-xs mt-2 flex items-center gap-1"
+		            className="text-xs mt-2 flex items-center gap-1.5"
 		            style={{ color: "var(--status-info)" }}
 		          >
-		            <span>✏️</span>
+		            <Pencil size={12} strokeWidth={2} />
 		            <span>Manually edited - protected from sync</span>
 		          </p>
 		        ) : value !== "" ? (
