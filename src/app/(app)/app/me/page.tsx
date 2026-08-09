@@ -126,6 +126,25 @@ export default function MyPage() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => router.push("/app/me/certificates")}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors"
+            style={{
+              borderColor: "var(--aviation-blue)",
+              color: "var(--aviation-blue)",
+              backgroundColor: "transparent"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--aviation-blue)";
+              e.currentTarget.style.color = "white";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--aviation-blue)";
+            }}
+          >
+            Certificates
+          </button>
+          <button
             onClick={() => router.push("/app/me/import")}
             className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors"
             style={{

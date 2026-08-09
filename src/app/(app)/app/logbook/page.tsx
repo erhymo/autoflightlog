@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listEntries, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
+import { useToast } from "@/components/ui/ToastProvider";
+
+const UNDO_DELETE_MS = 6000;
 
 const PAGE_SIZE = 15;
 
@@ -23,6 +26,8 @@ function parseNumeric(value: unknown): number {
 
 export default function LogbookPage() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const pendingDeleteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
   const [view, setView] = useState<ViewDefinition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,10 +72,39 @@ export default function LogbookPage() {
 	    router.push("/app/logbook/edit/new?basedOn=last");
 	  }
 
-  async function handleDelete(entryId: string) {
-    await deleteEntry(entryId);
+  function handleDelete(entryId: string) {
     setDeleteConfirm(null);
-    await refresh();
+    const removedEntry = entries.find((e) => e.id === entryId);
+    // Optimistically hide it; the real Firestore delete is deferred so the
+    // user has a few seconds to undo via the toast action below.
+    setEntries((prev) => prev.filter((e) => e.id !== entryId));
+
+    pendingDeleteTimers.current[entryId] = setTimeout(async () => {
+      delete pendingDeleteTimers.current[entryId];
+      try {
+        await deleteEntry(entryId);
+      } catch {
+        showToast("Failed to delete entry. It has been restored.", "error");
+        await refresh();
+      }
+    }, UNDO_DELETE_MS);
+
+    showToast("Entry deleted.", {
+      durationMs: UNDO_DELETE_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const timer = pendingDeleteTimers.current[entryId];
+          if (timer) {
+            clearTimeout(timer);
+            delete pendingDeleteTimers.current[entryId];
+          }
+          if (removedEntry) {
+            setEntries((prev) => [...prev, removedEntry]);
+          }
+        },
+      },
+    });
   }
 
 				// Sort entries so newest flights are always shown first (by flight date if available,
@@ -526,7 +560,7 @@ export default function LogbookPage() {
               Delete Entry
             </h2>
             <p className="mb-6" style={{ color: "var(--text-secondary)" }}>
-              Are you sure you want to delete this logbook entry? This action cannot be undone.
+              Are you sure you want to delete this logbook entry? You&apos;ll have a few seconds to undo it afterward.
             </p>
             <div className="flex gap-3 justify-end">
               <button

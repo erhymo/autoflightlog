@@ -1,7 +1,7 @@
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { getFirebaseClient } from "@/lib/firebase/client";
-import type { LogbookEntry, Template, ViewDefinition } from "@/types/domain";
+import type { Certificate, LogbookEntry, Template, ViewDefinition } from "@/types/domain";
 import {
   collection,
   deleteDoc,
@@ -246,4 +246,25 @@ export async function getConnectorByRequestId(requestId: string): Promise<any | 
   const snaps = await getDocs(q);
   const first = snaps.docs[0];
   return first ? first.data() : null;
+}
+
+// ---- Certificates (medical, license, ratings, etc. with an expiry date) ----
+
+export async function listCertificates(): Promise<Certificate[]> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  const snaps = await getDocs(collection(db, `users/${uid}/certificates`));
+  return snaps.docs.map((d) => d.data() as Certificate);
+}
+
+export async function upsertCertificate(certificate: Certificate): Promise<void> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  await setDoc(doc(db, `users/${uid}/certificates/${certificate.id}`), stripUndefined(certificate));
+}
+
+export async function deleteCertificate(certificateId: string): Promise<void> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  await deleteDoc(doc(db, `users/${uid}/certificates/${certificateId}`));
 }

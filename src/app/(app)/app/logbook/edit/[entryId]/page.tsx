@@ -6,6 +6,8 @@ import { getEntry, upsertEntry, getTemplate, listEntries } from "@/lib/repo/fire
 import { LogbookEntry, Template } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { getFieldSuggestions, getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
+import { findDuplicateEntry } from "@/lib/duplicateDetection";
+import { useToast } from "@/components/ui/ToastProvider";
 
 function findMostRecentAircraftForRegistration(
   entries: LogbookEntry[],
@@ -118,6 +120,7 @@ function computeValidationWarnings(entry: LogbookEntry): string[] {
 
 export default function EditEntryPage() {
 	  const router = useRouter();
+	  const { showToast } = useToast();
 	  const params = useParams();
 	  const searchParams = useSearchParams();
 	  const entryId = params.entryId as string;
@@ -211,7 +214,7 @@ export default function EditEntryPage() {
 	        // Existing entry flow: load from Firestore as before.
 	        const entryData = await getEntry(entryId);
 	        if (!entryData) {
-	          alert("Entry not found");
+	          showToast("Entry not found", "error");
 	          router.push("/app/logbook");
 	          return;
 	        }
@@ -238,6 +241,7 @@ export default function EditEntryPage() {
 			    return () => {
 			      cancelled = true;
 			    };
+			    // eslint-disable-next-line react-hooks/exhaustive-deps
 			  }, [entryId, router, basedOn]);
 
 		  const MULTI_ENGINE_MULTI_PILOT_TYPES = new Set([
@@ -406,7 +410,7 @@ export default function EditEntryPage() {
 	
 	      router.push("/app/logbook");
 	    } catch (error) {
-	      alert(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`);
+	      showToast(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
 	      setSaving(false);
 	    }
 	  }
@@ -452,6 +456,9 @@ export default function EditEntryPage() {
 		  );
 
 		  const validationWarnings = entry ? computeValidationWarnings(entry) : [];
+		  const duplicateEntry = entry
+		    ? findDuplicateEntry(allEntries, entry.values, entry.id)
+		    : undefined;
 
 		  const coreFieldOrder = [
 		    "date",
@@ -648,6 +655,20 @@ export default function EditEntryPage() {
 	          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
 	            Make changes to your logbook entry
 	          </p>
+	          {duplicateEntry && (
+	            <div
+	              className="mt-3 rounded-lg border px-3 py-2 text-xs"
+	              style={{
+	                borderColor: "var(--status-pending)",
+	                backgroundColor: "#FFFBEB",
+	                color: "#92400E",
+	              }}
+	            >
+	              <p className="font-medium">
+	                ⚠ Possible duplicate: an entry with the same date, departure, and arrival already exists.
+	              </p>
+	            </div>
+	          )}
 	          {validationWarnings.length > 0 && (
 	            <div
 	              className="mt-3 rounded-lg border px-3 py-2 text-xs"

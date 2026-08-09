@@ -63,10 +63,30 @@ export function exportToPDF(options: PDFExportOptions): jsPDF {
     });
   });
 
+  // Carried-forward totals, matching the paper-logbook convention of a
+  // "Total this page" / "Total to date" row at the bottom of each page, so
+  // the numbers stay meaningful when the export is printed or reviewed
+  // page by page rather than as one continuous table.
+  const numericColumnIndices = new Set(
+    fields.map((f, i) => (f.type === "number" ? i : -1)).filter(i => i >= 0)
+  );
+  const labelColumnIndex = 0;
+  const hasNumericColumns = numericColumnIndices.size > 0;
+
+  let pageTotals = new Array(fields.length).fill(0);
+  const cumulativeTotals = new Array(fields.length).fill(0);
+
   // Add table
   autoTable(doc, {
     head: [headers],
     body: rows,
+    foot: hasNumericColumns
+      ? [
+          fields.map((_, i) => (i === labelColumnIndex ? "Total this page" : "")),
+          fields.map((_, i) => (i === labelColumnIndex ? "Total to date" : "")),
+        ]
+      : undefined,
+    showFoot: hasNumericColumns ? "everyPage" : "never",
     startY: margin + 14,
     margin: { left: margin, right: margin },
     styles: {
@@ -82,10 +102,42 @@ export function exportToPDF(options: PDFExportOptions): jsPDF {
     bodyStyles: {
       textColor: [15, 23, 42], // text-primary
     },
+    footStyles: {
+      fillColor: [226, 232, 240], // border-default
+      textColor: [15, 23, 42],
+      fontStyle: "bold",
+    },
     alternateRowStyles: {
       fillColor: [248, 250, 252], // bg-primary
     },
     columnStyles: generateColumnStyles(fields),
+    // NOTE: didParseCell runs once during autotable's layout pass, before
+    // pagination is known, so body cells there reflect the whole table
+    // rather than a single page. didDrawCell instead fires once per cell
+    // at the moment it is actually painted onto a given page, in draw
+    // order — which is what per-page running totals need.
+    didDrawCell: (data) => {
+      if (data.section === "body" && numericColumnIndices.has(data.column.index)) {
+        const raw = parseFloat(String(data.cell.raw ?? ""));
+        const value = Number.isFinite(raw) ? raw : 0;
+        pageTotals[data.column.index] += value;
+        cumulativeTotals[data.column.index] += value;
+      } else if (data.section === "foot" && numericColumnIndices.has(data.column.index)) {
+        const isThisPageRow = data.row.index === 0;
+        const total = isThisPageRow ? pageTotals[data.column.index] : cumulativeTotals[data.column.index];
+        const text = total === 0 ? "-" : String(Math.round(total * 100) / 100);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42); // text-primary, matches footStyles
+        doc.text(text, data.cell.x + data.cell.width - 2, data.cell.y + data.cell.height / 2 + 1, {
+          align: "right",
+        });
+      }
+    },
+    didDrawPage: () => {
+      pageTotals = new Array(fields.length).fill(0);
+    },
   });
 
   // Add footer with page numbers

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { parseCSV, mapCSVColumns, mapRowsToEntries, ColumnMapping, MappedEntry } from "@/lib/csvImport";
 import { listEntries, upsertEntry } from "@/lib/repo/firestoreRepos";
+import { findDuplicateEntry } from "@/lib/duplicateDetection";
 import { LogbookEntry } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 
@@ -51,12 +52,8 @@ export default function ImportPage() {
     // Check for duplicates
     const existingEntries = await listEntries();
     const entriesWithDuplicateCheck = entries.map(entry => {
-      const duplicate = existingEntries.find(existing => 
-        existing.values.date === entry.values.date &&
-        existing.values.departure === entry.values.departure &&
-        existing.values.arrival === entry.values.arrival
-      );
-      
+      const duplicate = findDuplicateEntry(existingEntries, entry.values);
+
       return {
         ...entry,
         isDuplicate: !!duplicate,

@@ -1,9 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { listEntries, listConnectors } from "@/lib/repo/firestoreRepos";
-import { LogbookEntry } from "@/types/domain";
-import { calculateCurrencySummary } from "@/lib/currency/currency";
+import { listEntries, listConnectors, listCertificates } from "@/lib/repo/firestoreRepos";
+import { Certificate, LogbookEntry } from "@/types/domain";
+import { calculateCurrencySummary, WindowedRequirement } from "@/lib/currency/currency";
+import { getCertificateStatus, CertificateUrgency } from "@/lib/certificates/certificateStatus";
+
+const EXPIRY_WARNING_DAYS = 7;
+
+function daysUntil(date: Date | null, now: Date): number | null {
+  if (!date) return null;
+  return Math.ceil((date.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+type Urgency = "critical" | "warning" | "ok";
+
+function requirementUrgency(req: WindowedRequirement, now: Date): Urgency {
+  if (!req.isMet) return "critical";
+  const days = daysUntil(req.expiresAt, now);
+  if (days !== null && days <= EXPIRY_WARNING_DAYS) return "warning";
+  return "ok";
+}
+
+const URGENCY_STYLES: Record<Urgency, { border: string; bg: string; text: string }> = {
+  critical: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B" },
+  warning: { border: "#F59E0B", bg: "#FFFBEB", text: "#92400E" },
+  ok: { border: "#16A34A", bg: "#F0FDF4", text: "#166534" },
+};
+
+const CERT_URGENCY_STYLES: Record<CertificateUrgency, { border: string; bg: string; text: string; label: string }> = {
+  expired: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expired" },
+  critical: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expires soon" },
+  warning: { border: "#F59E0B", bg: "#FFFBEB", text: "#92400E", label: "Renew soon" },
+  ok: { border: "#16A34A", bg: "#F0FDF4", text: "#166534", label: "Valid" },
+};
+
+function requirementStatusText(req: WindowedRequirement, now: Date, formatDate: (d: Date | null) => string): string {
+  if (!req.isMet) return `Need ${req.missingCount} more`;
+  const days = daysUntil(req.expiresAt, now);
+  if (days !== null && days <= EXPIRY_WARNING_DAYS) {
+    return days <= 0 ? "Expires today" : `Expires in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  return `Valid until ${formatDate(req.expiresAt)}`;
+}
 
 type ConnectorSummary = {
 	status: "inactive" | "active" | "error";
@@ -20,6 +59,7 @@ function formatMinutesToHHMM(minutes: number): string {
 export default function DashboardPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
 	const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
+	const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -28,13 +68,15 @@ export default function DashboardPage() {
 		(async () => {
 			try {
 				setLoadError(null);
-				const [entriesData, connectorsData] = await Promise.all([
+				const [entriesData, connectorsData, certificatesData] = await Promise.all([
 					listEntries(),
 					listConnectors(),
+					listCertificates(),
 				]);
 				if (cancelled) return;
 				setEntries(entriesData);
 				setConnectors(connectorsData);
+				setCertificates(certificatesData);
 			} catch (err) {
 				console.error("Dashboard load failed", err);
 				if (cancelled) return;
@@ -135,6 +177,22 @@ export default function DashboardPage() {
 		ok
 			? { backgroundColor: "#DCFCE7", borderColor: "#16A34A", color: "#166534" }
 			: { backgroundColor: "#FEE2E2", borderColor: "#DC2626", color: "#991B1B" };
+
+	const passengerUrgency = requirementUrgency(currency.passengerLandings90, now);
+	const nightUrgency = requirementUrgency(currency.nightPassengerLandings90, now);
+	const overallUrgency: Urgency =
+		passengerUrgency === "critical" || nightUrgency === "critical"
+			? "critical"
+			: passengerUrgency === "warning" || nightUrgency === "warning"
+			? "warning"
+			: "ok";
+
+	const certificatesWithStatus = certificates
+		.map((cert) => ({ cert, status: getCertificateStatus(cert.expiryDate, now) }))
+		.sort((a, b) => a.status.daysUntilExpiry - b.status.daysUntilExpiry);
+	const attentionCertificates = certificatesWithStatus.filter(
+		(c) => c.status.urgency === "expired" || c.status.urgency === "critical"
+	);
 
   return (
     <div className="p-6 md:p-8 space-y-6">
@@ -254,38 +312,40 @@ export default function DashboardPage() {
 						</h3>
 						<span
 							className="text-xs font-semibold rounded-full border px-2 py-1"
-							style={badgeStyle(currency.passengerLandings90.isMet && currency.nightPassengerLandings90.isMet)}
+							style={badgeStyle(overallUrgency === "ok")}
 						>
-							{currency.passengerLandings90.isMet && currency.nightPassengerLandings90.isMet ? "Current" : "Attention"}
+							{overallUrgency === "ok" ? "Current" : overallUrgency === "warning" ? "Expiring soon" : "Attention"}
 						</span>
 					</div>
 
 					<div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-						<div className="rounded-xl border p-4" style={{ borderColor: "var(--border-light)" }}>
+						<div
+							className="rounded-xl border p-4"
+							style={{ borderColor: URGENCY_STYLES[passengerUrgency].border, backgroundColor: URGENCY_STYLES[passengerUrgency].bg }}
+						>
 							<div className="text-xs" style={{ color: "var(--text-secondary)" }}>
 								Passenger landings (last 90 days)
 							</div>
 							<div className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
 								{currency.passengerLandings90.actualCount}/{currency.passengerLandings90.requiredCount}
 							</div>
-							<div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-								{currency.passengerLandings90.isMet
-									? `Valid until ${formatDate(currency.passengerLandings90.expiresAt)}`
-									: `Need ${currency.passengerLandings90.missingCount} more`}
+							<div className="mt-1 text-xs font-medium" style={{ color: URGENCY_STYLES[passengerUrgency].text }}>
+								{requirementStatusText(currency.passengerLandings90, now, formatDate)}
 							</div>
 						</div>
 
-						<div className="rounded-xl border p-4" style={{ borderColor: "var(--border-light)" }}>
+						<div
+							className="rounded-xl border p-4"
+							style={{ borderColor: URGENCY_STYLES[nightUrgency].border, backgroundColor: URGENCY_STYLES[nightUrgency].bg }}
+						>
 							<div className="text-xs" style={{ color: "var(--text-secondary)" }}>
 								Night passenger landings (last 90 days)
 							</div>
 							<div className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
 								{currency.nightPassengerLandings90.actualCount}/{currency.nightPassengerLandings90.requiredCount}
 							</div>
-							<div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-								{currency.nightPassengerLandings90.isMet
-									? `Valid until ${formatDate(currency.nightPassengerLandings90.expiresAt)}`
-									: `Need ${currency.nightPassengerLandings90.missingCount} more`}
+							<div className="mt-1 text-xs font-medium" style={{ color: URGENCY_STYLES[nightUrgency].text }}>
+								{requirementStatusText(currency.nightPassengerLandings90, now, formatDate)}
 							</div>
 						</div>
 					</div>
@@ -311,6 +371,58 @@ export default function DashboardPage() {
 					<div className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
 						These figures are guidance only and do not filter by aircraft type/class.
 					</div>
+				</div>
+
+				{/* Certificates & Ratings */}
+				<div
+					className="rounded-lg border p-5"
+					style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}
+				>
+					<div className="flex items-center justify-between">
+						<h3 className="text-sm font-semibold" style={{ color: "var(--aviation-blue)" }}>
+							Certificates &amp; Ratings
+						</h3>
+						<a
+							href="/app/me/certificates"
+							className="text-xs font-medium underline hover:no-underline transition-all"
+							style={{ color: "var(--aviation-blue)" }}
+						>
+							{certificates.length === 0 ? "Add" : "Manage"}
+						</a>
+					</div>
+
+					{certificates.length === 0 ? (
+						<p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+							No certificates tracked yet. Add your medical, license, or type rating to get expiry reminders here.
+						</p>
+					) : (
+						<div className="mt-3 grid gap-2">
+							{certificatesWithStatus.slice(0, 4).map(({ cert, status }) => {
+								const style = CERT_URGENCY_STYLES[status.urgency];
+								return (
+									<div
+										key={cert.id}
+										className="rounded-lg border px-3 py-2 flex items-center justify-between gap-3"
+										style={{ borderColor: style.border, backgroundColor: style.bg }}
+									>
+										<span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+											{cert.label}
+										</span>
+										<span className="text-xs font-semibold" style={{ color: style.text }}>
+											{style.label}
+											{status.urgency !== "ok" && status.daysUntilExpiry >= 0 && ` (${status.daysUntilExpiry}d)`}
+										</span>
+									</div>
+								);
+							})}
+							{attentionCertificates.length > 0 && (
+								<p className="text-xs mt-1" style={{ color: "#991B1B" }}>
+									{attentionCertificates.length} certificate{attentionCertificates.length === 1 ? "" : "s"} need
+									{attentionCertificates.length === 1 ? "s" : ""} attention.
+								</p>
+							)}
+						</div>
+					)}
 				</div>
     </div>
   );

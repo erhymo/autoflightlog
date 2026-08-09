@@ -64,3 +64,20 @@ export interface LogbookEntry {
   createdAt: string;
   updatedAt: string;
 }
+
+export type CertificateType = "medical" | "license" | "rating" | "english_proficiency" | "other";
+
+/**
+ * Tracks a certificate/qualification with an expiry date (medical, license,
+ * type rating, English proficiency, etc.) alongside the flight-time based
+ * EASA currency in src/lib/currency/currency.ts.
+ */
+export interface Certificate {
+  id: string;
+  type: CertificateType;
+  label: string; // e.g. "Class 1 Medical", "AW169 Type Rating"
+  expiryDate: string; // ISO date string
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
