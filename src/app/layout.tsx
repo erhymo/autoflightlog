@@ -22,8 +22,27 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F2A44",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0F2A44" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B1220" },
+  ],
 };
+
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var theme = localStorage.getItem("theme");
+    if (theme === "light" || theme === "dark") {
+      document.documentElement.setAttribute("data-theme", theme);
+      var meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      meta.setAttribute("data-dynamic", "true");
+      meta.setAttribute("content", theme === "dark" ? "#0B1220" : "#0F2A44");
+      document.head.appendChild(meta);
+    }
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -32,6 +51,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Runs before first paint so a stored theme choice never flashes
+            the wrong palette on load. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

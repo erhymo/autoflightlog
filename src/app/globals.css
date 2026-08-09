@@ -5,6 +5,7 @@
   --aviation-blue: #0F2A44;
   --aviation-blue-light: #1A3A5A;
   --aviation-blue-dark: #0A1F33;
+  --aviation-accent: #0284C7;
 
   --text-primary: #0F172A;
   --text-secondary: #64748B;
@@ -22,9 +23,127 @@
   --status-error: #DC2626;
   --status-info: #3B82F6;
 
+  /* Subtle aviation-blue tint for "selected" toggle/option buttons. */
+  --selected-tint: rgba(15, 42, 68, 0.05);
+
+  /* Semantic severity tokens (bg/border/text triplets) used for banners,
+     status badges, and urgency cards - see src/lib/ui/statusColors.ts.
+     Centralizing these here means every consumer gets dark mode for free. */
+  --severity-success-bg: #F0FDF4;
+  --severity-success-border: #86EFAC;
+  --severity-success-text: #166534;
+
+  --severity-warning-bg: #FFFBEB;
+  --severity-warning-border: #FCD34D;
+  --severity-warning-text: #92400E;
+
+  --severity-critical-bg: #FEF2F2;
+  --severity-critical-border: #FCA5A5;
+  --severity-critical-text: #991B1B;
+
+  --severity-info-bg: #EFF6FF;
+  --severity-info-border: #93C5FD;
+  --severity-info-text: #1E40AF;
+
+  --severity-neutral-bg: #F1F5F9;
+  --severity-neutral-border: #E2E8F0;
+  --severity-neutral-text: #475569;
+
   /* Legacy support */
   --background: var(--bg-primary);
   --foreground: var(--text-primary);
+}
+
+/* Dark mode via system preference, unless the user explicitly chose light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --aviation-blue: #7DB8E8;
+    --aviation-blue-light: #A9D0F0;
+    --aviation-blue-dark: #5B9BD5;
+    --aviation-accent: #38BDF8;
+    --selected-tint: rgba(125, 184, 232, 0.14);
+
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+
+    --bg-primary: #0B1220;
+    --bg-card: #111A2C;
+    --bg-hover: #1B2740;
+
+    --border-default: #22304A;
+    --border-light: #1B2740;
+
+    --status-active: #4ADE80;
+    --status-pending: #FBBF24;
+    --status-error: #F87171;
+    --status-info: #60A5FA;
+
+    --severity-success-bg: rgba(74, 222, 128, 0.12);
+    --severity-success-border: rgba(74, 222, 128, 0.35);
+    --severity-success-text: #86EFAC;
+
+    --severity-warning-bg: rgba(251, 191, 36, 0.12);
+    --severity-warning-border: rgba(251, 191, 36, 0.35);
+    --severity-warning-text: #FCD34D;
+
+    --severity-critical-bg: rgba(248, 113, 113, 0.12);
+    --severity-critical-border: rgba(248, 113, 113, 0.35);
+    --severity-critical-text: #FCA5A5;
+
+    --severity-info-bg: rgba(96, 165, 250, 0.12);
+    --severity-info-border: rgba(96, 165, 250, 0.35);
+    --severity-info-text: #93C5FD;
+
+    --severity-neutral-bg: #1B2740;
+    --severity-neutral-border: #22304A;
+    --severity-neutral-text: #94A3B8;
+  }
+}
+
+/* Explicit dark mode choice always wins, regardless of system preference. */
+:root[data-theme="dark"] {
+  --aviation-blue: #7DB8E8;
+  --aviation-blue-light: #A9D0F0;
+  --aviation-blue-dark: #5B9BD5;
+  --aviation-accent: #38BDF8;
+  --selected-tint: rgba(125, 184, 232, 0.14);
+
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+
+  --bg-primary: #0B1220;
+  --bg-card: #111A2C;
+  --bg-hover: #1B2740;
+
+  --border-default: #22304A;
+  --border-light: #1B2740;
+
+  --status-active: #4ADE80;
+  --status-pending: #FBBF24;
+  --status-error: #F87171;
+  --status-info: #60A5FA;
+
+  --severity-success-bg: rgba(74, 222, 128, 0.12);
+  --severity-success-border: rgba(74, 222, 128, 0.35);
+  --severity-success-text: #86EFAC;
+
+  --severity-warning-bg: rgba(251, 191, 36, 0.12);
+  --severity-warning-border: rgba(251, 191, 36, 0.35);
+  --severity-warning-text: #FCD34D;
+
+  --severity-critical-bg: rgba(248, 113, 113, 0.12);
+  --severity-critical-border: rgba(248, 113, 113, 0.35);
+  --severity-critical-text: #FCA5A5;
+
+  --severity-info-bg: rgba(96, 165, 250, 0.12);
+  --severity-info-border: rgba(96, 165, 250, 0.35);
+  --severity-info-text: #93C5FD;
+
+  --severity-neutral-bg: #1B2740;
+  --severity-neutral-border: #22304A;
+  --severity-neutral-text: #94A3B8;
 }
 
 @theme inline {
@@ -40,6 +159,32 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Native form controls (select, date input) styled to match the custom
+   text inputs used throughout the app, instead of default browser chrome. */
+select,
+input[type="date"] {
+  color-scheme: light;
+  accent-color: var(--aviation-blue);
+}
+
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) select,
+  :root:not([data-theme="light"]) input[type="date"] {
+    color-scheme: dark;
+  }
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--aviation-blue);
 }
 
 /* Logbook full-screen mode on small landscape screens */
@@ -66,4 +211,18 @@ body {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+@keyframes pulse-skeleton {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton {
+  background-color: var(--bg-hover);
+  animation: pulse-skeleton 1.5s ease-in-out infinite;
 }
