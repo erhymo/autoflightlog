@@ -5,6 +5,9 @@ import { listEntries, listConnectors, listCertificates } from "@/lib/repo/firest
 import { Certificate, LogbookEntry } from "@/types/domain";
 import { calculateCurrencySummary, WindowedRequirement } from "@/lib/currency/currency";
 import { getCertificateStatus, CertificateUrgency } from "@/lib/certificates/certificateStatus";
+import { SEVERITY_STYLES, Severity } from "@/lib/ui/statusColors";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton, SkeletonCardGrid } from "@/components/ui/Skeleton";
 
 const EXPIRY_WARNING_DAYS = 7;
 
@@ -22,17 +25,24 @@ function requirementUrgency(req: WindowedRequirement, now: Date): Urgency {
   return "ok";
 }
 
-const URGENCY_STYLES: Record<Urgency, { border: string; bg: string; text: string }> = {
-  critical: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B" },
-  warning: { border: "#F59E0B", bg: "#FFFBEB", text: "#92400E" },
-  ok: { border: "#16A34A", bg: "#F0FDF4", text: "#166534" },
+const URGENCY_TO_SEVERITY: Record<Urgency, Severity> = {
+  critical: "critical",
+  warning: "warning",
+  ok: "success",
 };
 
-const CERT_URGENCY_STYLES: Record<CertificateUrgency, { border: string; bg: string; text: string; label: string }> = {
-  expired: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expired" },
-  critical: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expires soon" },
-  warning: { border: "#F59E0B", bg: "#FFFBEB", text: "#92400E", label: "Renew soon" },
-  ok: { border: "#16A34A", bg: "#F0FDF4", text: "#166534", label: "Valid" },
+const CERT_URGENCY_TO_SEVERITY: Record<CertificateUrgency, Severity> = {
+  expired: "critical",
+  critical: "critical",
+  warning: "warning",
+  ok: "success",
+};
+
+const CERT_URGENCY_LABELS: Record<CertificateUrgency, string> = {
+  expired: "Expired",
+  critical: "Expires soon",
+  warning: "Renew soon",
+  ok: "Valid",
 };
 
 function requirementStatusText(req: WindowedRequirement, now: Date, formatDate: (d: Date | null) => string): string {
@@ -94,24 +104,24 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold text-gray-900 mb-4">Dashboard</h1>
-        <p className="text-gray-600">Loading...</p>
+      <div className="p-6 md:p-8 space-y-6">
+        <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>Dashboard</h1>
+        <SkeletonCardGrid count={8} />
+        <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     );
   }
 
 	if (loadError) {
 		return (
-			<div className="p-6">
-				<h1 className="text-xl font-semibold text-gray-900 mb-4">Dashboard</h1>
-				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
-					<p className="text-sm font-medium text-red-900">Kunne ikke laste data.</p>
-					<p className="text-sm text-red-700 mt-1">{loadError}</p>
-					<p className="text-xs text-red-700 mt-2">
-						Tips: dette skyldes ofte Firestore "Missing or insufficient permissions" (regler) eller at du ikke er logget inn.
+			<div className="p-6 space-y-4">
+				<h1 className="text-xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>Dashboard</h1>
+				<Banner severity="critical" title="Could not load dashboard data.">
+					<p>{loadError}</p>
+					<p className="mt-2 text-xs">
+						Tip: this is often caused by Firestore &quot;Missing or insufficient permissions&quot; (security rules), or not being signed in.
 					</p>
-				</div>
+				</Banner>
 			</div>
 		);
 	}
@@ -173,10 +183,10 @@ export default function DashboardPage() {
 
 	const currency = calculateCurrencySummary(entries, now);
 	const formatDate = (d: Date | null) => (d ? d.toLocaleDateString() : "-");
-	const badgeStyle = (ok: boolean) =>
-		ok
-			? { backgroundColor: "#DCFCE7", borderColor: "#16A34A", color: "#166534" }
-			: { backgroundColor: "#FEE2E2", borderColor: "#DC2626", color: "#991B1B" };
+	const badgeStyle = (ok: boolean) => {
+		const s = SEVERITY_STYLES[ok ? "success" : "critical"];
+		return { backgroundColor: s.bg, borderColor: s.border, color: s.text };
+	};
 
 	const passengerUrgency = requirementUrgency(currency.passengerLandings90, now);
 	const nightUrgency = requirementUrgency(currency.nightPassengerLandings90, now);
@@ -321,7 +331,7 @@ export default function DashboardPage() {
 					<div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
 						<div
 							className="rounded-xl border p-4"
-							style={{ borderColor: URGENCY_STYLES[passengerUrgency].border, backgroundColor: URGENCY_STYLES[passengerUrgency].bg }}
+							style={{ borderColor: SEVERITY_STYLES[URGENCY_TO_SEVERITY[passengerUrgency]].border, backgroundColor: SEVERITY_STYLES[URGENCY_TO_SEVERITY[passengerUrgency]].bg }}
 						>
 							<div className="text-xs" style={{ color: "var(--text-secondary)" }}>
 								Passenger landings (last 90 days)
@@ -329,14 +339,14 @@ export default function DashboardPage() {
 							<div className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
 								{currency.passengerLandings90.actualCount}/{currency.passengerLandings90.requiredCount}
 							</div>
-							<div className="mt-1 text-xs font-medium" style={{ color: URGENCY_STYLES[passengerUrgency].text }}>
+							<div className="mt-1 text-xs font-medium" style={{ color: SEVERITY_STYLES[URGENCY_TO_SEVERITY[passengerUrgency]].text }}>
 								{requirementStatusText(currency.passengerLandings90, now, formatDate)}
 							</div>
 						</div>
 
 						<div
 							className="rounded-xl border p-4"
-							style={{ borderColor: URGENCY_STYLES[nightUrgency].border, backgroundColor: URGENCY_STYLES[nightUrgency].bg }}
+							style={{ borderColor: SEVERITY_STYLES[URGENCY_TO_SEVERITY[nightUrgency]].border, backgroundColor: SEVERITY_STYLES[URGENCY_TO_SEVERITY[nightUrgency]].bg }}
 						>
 							<div className="text-xs" style={{ color: "var(--text-secondary)" }}>
 								Night passenger landings (last 90 days)
@@ -344,7 +354,7 @@ export default function DashboardPage() {
 							<div className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
 								{currency.nightPassengerLandings90.actualCount}/{currency.nightPassengerLandings90.requiredCount}
 							</div>
-							<div className="mt-1 text-xs font-medium" style={{ color: URGENCY_STYLES[nightUrgency].text }}>
+							<div className="mt-1 text-xs font-medium" style={{ color: SEVERITY_STYLES[URGENCY_TO_SEVERITY[nightUrgency]].text }}>
 								{requirementStatusText(currency.nightPassengerLandings90, now, formatDate)}
 							</div>
 						</div>
@@ -398,7 +408,7 @@ export default function DashboardPage() {
 					) : (
 						<div className="mt-3 grid gap-2">
 							{certificatesWithStatus.slice(0, 4).map(({ cert, status }) => {
-								const style = CERT_URGENCY_STYLES[status.urgency];
+								const style = SEVERITY_STYLES[CERT_URGENCY_TO_SEVERITY[status.urgency]];
 								return (
 									<div
 										key={cert.id}
@@ -409,14 +419,14 @@ export default function DashboardPage() {
 											{cert.label}
 										</span>
 										<span className="text-xs font-semibold" style={{ color: style.text }}>
-											{style.label}
+											{CERT_URGENCY_LABELS[status.urgency]}
 											{status.urgency !== "ok" && status.daysUntilExpiry >= 0 && ` (${status.daysUntilExpiry}d)`}
 										</span>
 									</div>
 								);
 							})}
 							{attentionCertificates.length > 0 && (
-								<p className="text-xs mt-1" style={{ color: "#991B1B" }}>
+								<p className="text-xs mt-1" style={{ color: "var(--severity-critical-text)" }}>
 									{attentionCertificates.length} certificate{attentionCertificates.length === 1 ? "" : "s"} need
 									{attentionCertificates.length === 1 ? "s" : ""} attention.
 								</p>

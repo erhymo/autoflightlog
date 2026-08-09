@@ -127,58 +127,22 @@ export default function MyPage() {
         <div className="flex gap-2">
           <button
             onClick={() => router.push("/app/me/certificates")}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors"
-            style={{
-              borderColor: "var(--aviation-blue)",
-              color: "var(--aviation-blue)",
-              backgroundColor: "transparent"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--aviation-blue)";
-              e.currentTarget.style.color = "white";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--aviation-blue)";
-            }}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium border bg-transparent text-[var(--aviation-blue)] transition-colors hover:bg-[var(--aviation-blue)] hover:text-white"
+            style={{ borderColor: "var(--aviation-blue)" }}
           >
             Certificates
           </button>
           <button
             onClick={() => router.push("/app/me/import")}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors"
-            style={{
-              borderColor: "var(--aviation-blue)",
-              color: "var(--aviation-blue)",
-              backgroundColor: "transparent"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--aviation-blue)";
-              e.currentTarget.style.color = "white";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--aviation-blue)";
-            }}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium border bg-transparent text-[var(--aviation-blue)] transition-colors hover:bg-[var(--aviation-blue)] hover:text-white"
+            style={{ borderColor: "var(--aviation-blue)" }}
           >
             Import CSV
           </button>
           <button
             onClick={() => router.push("/app/me/export")}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors"
-            style={{
-              borderColor: "var(--aviation-blue)",
-              color: "var(--aviation-blue)",
-              backgroundColor: "transparent"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--aviation-blue)";
-              e.currentTarget.style.color = "white";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--aviation-blue)";
-            }}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium border bg-transparent text-[var(--aviation-blue)] transition-colors hover:bg-[var(--aviation-blue)] hover:text-white"
+            style={{ borderColor: "var(--aviation-blue)" }}
           >
             Export
           </button>
@@ -206,13 +170,11 @@ export default function MyPage() {
                 return (
                   <label
                     key={key}
-                    className="flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg transition-colors"
+                    className={`flex items-center gap-2.5 text-sm cursor-pointer p-2 rounded-lg transition-colors ${isSelected ? "" : "hover:bg-[var(--bg-primary)]"}`}
                     style={{
-                      backgroundColor: isSelected ? "var(--bg-hover)" : "transparent",
+                      backgroundColor: isSelected ? "var(--bg-hover)" : undefined,
                       color: "var(--text-primary)"
                     }}
-                    onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = "var(--bg-primary)")}
-                    onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = "transparent")}
                   >
                     <input
                       type="checkbox"
@@ -238,12 +200,10 @@ export default function MyPage() {
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         <button
-          className="w-full md:w-auto rounded-lg px-8 py-3 disabled:opacity-50 font-medium text-white transition-all"
+          className="w-full md:w-auto rounded-lg px-8 py-3 disabled:opacity-50 font-medium text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: "var(--aviation-blue)" }}
           onClick={save}
           disabled={selected.length < 3}
-          onMouseEnter={(e) => selected.length >= 3 && (e.currentTarget.style.opacity = "0.9")}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
         >
           Save & Go to Logbook
         </button>

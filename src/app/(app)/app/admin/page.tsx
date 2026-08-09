@@ -5,6 +5,7 @@ import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
 import Link from "next/link";
 
 type AdminUser = {
@@ -214,11 +215,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-lg border p-4 text-sm" style={{ borderColor: "#ef4444", color: "#b91c1c" }}>
-          {error}
-        </div>
-      )}
+      {error && <Banner severity="critical">{error}</Banner>}
 
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border-default)" }}>
         <div className="overflow-x-auto">
@@ -263,10 +260,10 @@ export default function AdminPage() {
                   <td className="px-4 py-3 font-mono" style={{ color: "var(--text-secondary)" }}>
                     {u.uid}
                   </td>
-                  <td className="px-4 py-3" style={{ color: u.disabled ? "#ef4444" : "#16a34a" }}>
+                  <td className="px-4 py-3" style={{ color: u.disabled ? "var(--status-error)" : "var(--status-active)" }}>
                     {u.disabled ? "disabled" : "active"}
                   </td>
-                  <td className="px-4 py-3" style={{ color: u.hidden ? "#b45309" : "#16a34a" }}>
+                  <td className="px-4 py-3" style={{ color: u.hidden ? "var(--status-pending)" : "var(--status-active)" }}>
                     {u.hidden ? "hidden" : "visible"}
                   </td>
                   <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>
@@ -302,7 +299,7 @@ export default function AdminPage() {
                       <button
                         onClick={() => setPendingDeleteUid(u.uid)}
                         className="px-3 py-1.5 rounded-md text-xs font-medium"
-                        style={{ backgroundColor: "#ef4444", color: "white" }}
+                        style={{ backgroundColor: "var(--status-error)", color: "white" }}
                       >
                         Delete
                       </button>

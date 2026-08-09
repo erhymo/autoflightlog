@@ -5,6 +5,10 @@ import { listCertificates, upsertCertificate, deleteCertificate } from "@/lib/re
 import { getCertificateStatus, CertificateUrgency } from "@/lib/certificates/certificateStatus";
 import { Certificate, CertificateType } from "@/types/domain";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { SEVERITY_STYLES, Severity } from "@/lib/ui/statusColors";
+import { Pencil, Trash2 } from "lucide-react";
 
 const TYPE_LABELS: Record<CertificateType, string> = {
   medical: "Medical certificate",
@@ -14,11 +18,18 @@ const TYPE_LABELS: Record<CertificateType, string> = {
   other: "Other",
 };
 
-const URGENCY_STYLES: Record<CertificateUrgency, { border: string; bg: string; text: string; label: string }> = {
-  expired: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expired" },
-  critical: { border: "#DC2626", bg: "#FEF2F2", text: "#991B1B", label: "Expires soon" },
-  warning: { border: "#F59E0B", bg: "#FFFBEB", text: "#92400E", label: "Renew soon" },
-  ok: { border: "#16A34A", bg: "#F0FDF4", text: "#166534", label: "Valid" },
+const CERT_URGENCY_TO_SEVERITY: Record<CertificateUrgency, Severity> = {
+  expired: "critical",
+  critical: "critical",
+  warning: "warning",
+  ok: "success",
+};
+
+const CERT_URGENCY_LABELS: Record<CertificateUrgency, string> = {
+  expired: "Expired",
+  critical: "Expires soon",
+  warning: "Renew soon",
+  ok: "Valid",
 };
 
 function nowIso() {
@@ -131,13 +142,17 @@ export default function CertificatesPage() {
         )}
       </div>
 
-      {loading && <p style={{ color: "var(--text-secondary)" }}>Loading...</p>}
+      {loading && (
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      )}
 
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-900">Could not load certificates.</p>
-          <p className="text-sm text-red-700 mt-1">{loadError}</p>
-        </div>
+        <Banner severity="critical" title="Could not load certificates.">
+          {loadError}
+        </Banner>
       )}
 
       {editingId !== null && (
@@ -232,7 +247,7 @@ export default function CertificatesPage() {
       <div className="grid gap-3">
         {sorted.map((cert) => {
           const status = getCertificateStatus(cert.expiryDate);
-          const style = URGENCY_STYLES[status.urgency];
+          const style = SEVERITY_STYLES[CERT_URGENCY_TO_SEVERITY[status.urgency]];
           return (
             <div
               key={cert.id}
@@ -249,7 +264,7 @@ export default function CertificatesPage() {
                   </span>
                 </div>
                 <div className="text-sm font-medium mt-1" style={{ color: style.text }}>
-                  {style.label} — expires {new Date(cert.expiryDate).toLocaleDateString()}
+                  {CERT_URGENCY_LABELS[status.urgency]} — expires {new Date(cert.expiryDate).toLocaleDateString()}
                   {status.urgency !== "ok" && status.daysUntilExpiry >= 0 && ` (${status.daysUntilExpiry} days)`}
                 </div>
                 {cert.notes && (
@@ -261,16 +276,18 @@ export default function CertificatesPage() {
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => startEdit(cert)}
-                  className="px-3 py-1.5 rounded-md border text-xs font-medium"
-                  style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-card)", color: "var(--text-primary)" }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ borderColor: "var(--border-default)", color: "var(--text-primary)" }}
                 >
+                  <Pencil size={12} strokeWidth={2} />
                   Edit
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(cert.id)}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-white"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "var(--status-error)" }}
                 >
+                  <Trash2 size={12} strokeWidth={2} />
                   Delete
                 </button>
               </div>
@@ -298,8 +315,8 @@ export default function CertificatesPage() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg border font-medium"
-                style={{ borderColor: "var(--border-default)", color: "var(--text-primary)", backgroundColor: "var(--bg-card)" }}
+                className="px-4 py-2 rounded-lg border font-medium transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ borderColor: "var(--border-default)", color: "var(--text-primary)" }}
               >
                 Cancel
               </button>

@@ -7,6 +7,8 @@ import { listEntries, upsertEntry } from "@/lib/repo/firestoreRepos";
 import { findDuplicateEntry } from "@/lib/duplicateDetection";
 import { LogbookEntry } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
+import { severityCardStyle } from "@/lib/ui/statusColors";
+import { Upload, Check, TriangleAlert } from "lucide-react";
 
 function nowIso() {
   return new Date().toISOString();
@@ -105,10 +107,8 @@ export default function ImportPage() {
         <div>
           <button
             onClick={() => router.push("/app/me")}
-            className="text-sm mb-4 flex items-center gap-2 transition-colors"
+            className="text-sm mb-4 flex items-center gap-2 transition-opacity hover:opacity-70"
             style={{ color: "var(--aviation-blue)" }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = "0.7"}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
           >
             ← Back to Settings
           </button>
@@ -128,20 +128,7 @@ export default function ImportPage() {
           }}
         >
           <div className="mb-4">
-            <svg
-              className="mx-auto h-12 w-12"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Upload className="mx-auto h-12 w-12" strokeWidth={1.5} style={{ color: "var(--text-muted)" }} />
           </div>
           <label className="cursor-pointer">
             <span
@@ -257,10 +244,8 @@ export default function ImportPage() {
           </button>
           <button
             onClick={proceedToReview}
-            className="px-6 py-2.5 rounded-lg font-medium text-white transition-opacity"
+            className="px-6 py-2.5 rounded-lg font-medium text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: "var(--aviation-blue)" }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
           >
             Continue to Review
           </button>
@@ -289,8 +274,7 @@ export default function ImportPage() {
               key={idx}
               className="rounded-xl border p-4"
               style={{
-                backgroundColor: entry.isDuplicate ? "#FEF3C7" : "var(--bg-card)",
-                borderColor: entry.isDuplicate ? "var(--status-pending)" : "var(--border-default)",
+                ...(entry.isDuplicate ? severityCardStyle("warning") : { backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }),
                 opacity: selectedEntries.has(idx) ? 1 : 0.5
               }}
             >
@@ -300,7 +284,6 @@ export default function ImportPage() {
                   checked={selectedEntries.has(idx)}
                   onChange={() => toggleEntry(idx)}
                   className="mt-1 w-4 h-4"
-                  style={{ accentColor: "var(--aviation-blue)" }}
                 />
                 <div className="flex-1">
                   <div className="flex gap-4 flex-wrap text-sm">
@@ -320,8 +303,9 @@ export default function ImportPage() {
                     </div>
                   )}
                   {entry.isDuplicate && (
-                    <div className="mt-2 text-xs font-medium" style={{ color: "#92400E" }}>
-                      ⚠ Possible duplicate entry
+                    <div className="mt-2 text-xs font-medium flex items-center gap-1.5" style={{ color: "var(--severity-warning-text)" }}>
+                      <TriangleAlert size={12} strokeWidth={2.5} />
+                      Possible duplicate entry
                     </div>
                   )}
                 </div>
@@ -368,9 +352,7 @@ export default function ImportPage() {
             className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
             style={{ backgroundColor: "var(--status-active)" }}
           >
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+            <Check className="w-8 h-8 text-white" strokeWidth={2.5} />
           </div>
           <h2 className="text-2xl font-semibold mb-2" style={{ color: "var(--aviation-blue)" }}>
             Import Complete
@@ -381,10 +363,8 @@ export default function ImportPage() {
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push("/app/logbook")}
-              className="px-6 py-2.5 rounded-lg font-medium text-white transition-opacity"
+              className="px-6 py-2.5 rounded-lg font-medium text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: "var(--aviation-blue)" }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
             >
               View Logbook
             </button>

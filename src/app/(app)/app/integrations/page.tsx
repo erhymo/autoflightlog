@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { listIntegrationRequests, addIntegrationRequest, getConnectorByRequestId } from "@/lib/repo/firestoreRepos";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
+import { SEVERITY_STYLES, Severity } from "@/lib/ui/statusColors";
+import { Check, Clock, Mail, Settings as SettingsIcon } from "lucide-react";
 
 interface IntegrationRequest {
   id: string;
@@ -123,49 +127,60 @@ export default function IntegrationsPage() {
     return "configured";
   }
 
-  function getStatusColor(status: string) {
+  function getRequestSeverity(status: string): Severity {
     switch (status) {
       case "active":
-        return { bg: "#DCFCE7", text: "var(--status-active)", border: "#86EFAC" };
+        return "success";
       case "configured":
-        return { bg: "#DBEAFE", text: "var(--status-info)", border: "#93C5FD" };
+        return "info";
       default:
-        return { bg: "#FEF3C7", text: "var(--status-pending)", border: "#FCD34D" };
+        return "warning";
+    }
+  }
+
+  function getStatusIcon(status: string) {
+    switch (status) {
+      case "active":
+        return <Check size={12} strokeWidth={3} />;
+      case "configured":
+        return <SettingsIcon size={12} strokeWidth={2.5} />;
+      default:
+        return <Clock size={12} strokeWidth={2.5} />;
     }
   }
 
   function getStatusText(status: string) {
     switch (status) {
       case "active":
-        return "✓ Active";
+        return "Active";
       case "configured":
-        return "⚙ Configured";
+        return "Configured";
       default:
-        return "⏳ Pending Setup";
+        return "Pending Setup";
     }
   }
 
   if (loading) {
     return (
-      <div className="p-6 md:p-8">
+      <div className="p-6 md:p-8 space-y-6">
         <h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
           Integrations
         </h1>
-        <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <SkeletonRows count={3} />
       </div>
     );
   }
 
 	if (loadError) {
 		return (
-			<div className="p-6 md:p-8">
+			<div className="p-6 md:p-8 space-y-4">
 				<h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
 					Integrations
 				</h1>
-				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
-					<p className="text-sm font-medium text-red-900">Kunne ikke laste integrasjoner.</p>
-					<p className="text-sm text-red-700 mt-1">{loadError}</p>
-				</div>
+				<Banner severity="critical" title="Could not load integrations.">
+					{loadError}
+				</Banner>
 			</div>
 		);
 	}
@@ -191,7 +206,7 @@ export default function IntegrationsPage() {
           <div className="grid gap-3">
             {requests.map((req) => {
               const status = getRequestStatus(req);
-              const statusColors = getStatusColor(status);
+              const statusColors = SEVERITY_STYLES[getRequestSeverity(status)];
 							const isActive = status === "active";
 
               return (
@@ -214,13 +229,14 @@ export default function IntegrationsPage() {
                           {req.companyName}
                         </h3>
                         <span
-                          className="px-2.5 py-1 rounded-full text-xs font-medium border"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border"
                           style={{
                             backgroundColor: statusColors.bg,
                             color: statusColors.text,
                             borderColor: statusColors.border
                           }}
                         >
+                          {getStatusIcon(status)}
                           {getStatusText(status)}
                         </span>
                       </div>
@@ -279,13 +295,8 @@ export default function IntegrationsPage() {
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full rounded-lg border p-3 transition-colors"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)"
-              }}
-              onFocus={(e) => e.target.style.borderColor = "var(--aviation-blue)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
+              className="w-full rounded-lg border border-[var(--border-default)] p-3 transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+              style={{ color: "var(--text-primary)" }}
               placeholder="e.g., Acme Airlines"
             />
           </div>
@@ -298,13 +309,8 @@ export default function IntegrationsPage() {
               type="email"
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
-              className="w-full rounded-lg border p-3 transition-colors"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)"
-              }}
-              onFocus={(e) => e.target.style.borderColor = "var(--aviation-blue)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
+              className="w-full rounded-lg border border-[var(--border-default)] p-3 transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+              style={{ color: "var(--text-primary)" }}
               placeholder="e.g., it-support@acmeairlines.com"
             />
           </div>
@@ -317,13 +323,8 @@ export default function IntegrationsPage() {
               type="text"
               value={crewId}
               onChange={(e) => setCrewId(e.target.value)}
-              className="w-full rounded-lg border p-3 transition-colors"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)"
-              }}
-              onFocus={(e) => e.target.style.borderColor = "var(--aviation-blue)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
+              className="w-full rounded-lg border border-[var(--border-default)] p-3 transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+              style={{ color: "var(--text-primary)" }}
               placeholder="e.g., PILOT12345"
             />
           </div>
@@ -331,10 +332,8 @@ export default function IntegrationsPage() {
           <button
             onClick={handleGenerateRequest}
             disabled={!companyName || !contactEmail || !crewId}
-            className="rounded-lg px-6 py-3 font-medium text-white disabled:opacity-50 transition-all"
+            className="rounded-lg px-6 py-3 font-medium text-white disabled:opacity-50 transition-opacity hover:opacity-90"
             style={{ backgroundColor: "var(--aviation-blue)" }}
-            onMouseEnter={(e) => (!companyName || !contactEmail || !crewId) ? null : e.currentTarget.style.opacity = "0.9"}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
           >
             Create Integration Request
           </button>
@@ -363,7 +362,7 @@ export default function IntegrationsPage() {
                   className="w-8 h-8 rounded-full text-white flex items-center justify-center text-sm font-bold"
                   style={{ backgroundColor: "var(--status-active)" }}
                 >
-                  ✓
+                  <Check size={16} strokeWidth={3} />
                 </div>
                 <span className="text-xs md:text-sm font-medium hidden sm:inline" style={{ color: "var(--text-primary)" }}>
                   Request Created
@@ -381,7 +380,7 @@ export default function IntegrationsPage() {
                     color: selectedRequest.connector ? "#FFFFFF" : "var(--text-muted)"
                   }}
                 >
-                  {selectedRequest.connector ? "✓" : "2"}
+                  {selectedRequest.connector ? <Check size={16} strokeWidth={3} /> : "2"}
                 </div>
                 <span className="text-xs md:text-sm font-medium hidden sm:inline" style={{ color: "var(--text-primary)" }}>
                   Employer Setup
@@ -399,7 +398,7 @@ export default function IntegrationsPage() {
                     color: selectedRequest.connector?.status === "active" ? "#FFFFFF" : "var(--text-muted)"
                   }}
                 >
-                  {selectedRequest.connector?.status === "active" ? "✓" : "3"}
+                  {selectedRequest.connector?.status === "active" ? <Check size={16} strokeWidth={3} /> : "3"}
                 </div>
                 <span className="text-xs md:text-sm font-medium hidden sm:inline" style={{ color: "var(--text-primary)" }}>
                   Active
@@ -411,21 +410,16 @@ export default function IntegrationsPage() {
           {/* Instructions based on status */}
           {!selectedRequest.connector ? (
             <div className="space-y-4">
-              <div
-                className="p-4 border rounded-xl"
-                style={{
-                  backgroundColor: "#DBEAFE",
-                  borderColor: "#93C5FD"
-                }}
-              >
-                <p className="text-sm font-medium mb-2" style={{ color: "#1E40AF" }}>
-                  📧 Next Step: Send setup link to your employer
+              <Banner severity="info">
+                <p className="font-medium mb-2 flex items-center gap-1.5">
+                  <Mail size={14} strokeWidth={2.5} />
+                  Next Step: Send setup link to your employer
                 </p>
-                <p className="text-sm" style={{ color: "#1E3A8A" }}>
+                <p>
                   Copy the link below and send it to your IT department at{" "}
                   <strong>{selectedRequest.contactEmail}</strong>
                 </p>
-              </div>
+              </Banner>
 
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
@@ -444,10 +438,8 @@ export default function IntegrationsPage() {
                   />
                   <button
                     onClick={() => copyToClipboard(setupLinkFor(selectedRequest))}
-                    className="rounded-lg px-4 py-2 font-medium text-sm text-white transition-all"
+                    className="rounded-lg px-4 py-2 font-medium text-sm text-white transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "var(--aviation-blue)" }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
-                    onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
                   >
                     Copy Link
                   </button>
@@ -468,13 +460,8 @@ export default function IntegrationsPage() {
                     </span>
                     <button
                       onClick={() => copyToClipboard(generateEmailDraft(selectedRequest))}
-                      className="rounded-lg px-3 py-1 font-medium text-xs transition-all"
-                      style={{
-                        backgroundColor: "var(--bg-hover)",
-                        color: "var(--text-primary)"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--border-default)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--bg-hover)"}
+                      className="rounded-lg px-3 py-1 font-medium text-xs bg-[var(--bg-hover)] transition-colors hover:bg-[var(--border-default)]"
+                      style={{ color: "var(--text-primary)" }}
                     >
                       Copy Email
                     </button>
@@ -493,47 +480,32 @@ export default function IntegrationsPage() {
               </details>
             </div>
           ) : selectedRequest.connector.status === "active" ? (
-            <div
-              className="p-4 border rounded-xl"
-              style={{
-                backgroundColor: "#DCFCE7",
-                borderColor: "#86EFAC"
-              }}
-            >
-              <p className="font-medium mb-2" style={{ color: "var(--status-active)" }}>
-                ✓ Integration is active!
+            <Banner severity="success">
+              <p className="font-medium mb-2 flex items-center gap-1.5">
+                <Check size={14} strokeWidth={3} />
+                Integration is active!
               </p>
-              <p className="text-sm" style={{ color: "#166534" }}>
-	              Automatic flight data sync is coming soon.
-              </p>
+              <p>Automatic flight data sync is coming soon.</p>
 					{selectedRequest.connector.lastSyncAttemptAt && (
-                <p className="text-sm mt-2" style={{ color: "#15803D" }}>
+                <p className="mt-2">
 							Last attempt: {new Date(selectedRequest.connector.lastSyncAttemptAt).toLocaleString()}
 							{selectedRequest.connector.lastSyncStatus ? ` (${selectedRequest.connector.lastSyncStatus})` : ""}
                 </p>
               )}
 					{selectedRequest.connector.lastSyncStatus === "error" && selectedRequest.connector.lastSyncError && (
-						<p className="text-sm mt-2" style={{ color: "#991B1B" }}>
+						<p className="mt-2">
 							Sync error: {selectedRequest.connector.lastSyncError}
 						</p>
 					)}
-
-            </div>
+            </Banner>
           ) : (
-            <div
-              className="p-4 border rounded-xl"
-              style={{
-                backgroundColor: "#FEF3C7",
-                borderColor: "#FCD34D"
-              }}
-            >
-              <p className="font-medium mb-2" style={{ color: "var(--status-pending)" }}>
-                ⚙ Waiting for activation
+            <Banner severity="warning">
+              <p className="font-medium mb-2 flex items-center gap-1.5">
+                <SettingsIcon size={14} strokeWidth={2.5} />
+                Waiting for activation
               </p>
-              <p className="text-sm" style={{ color: "#92400E" }}>
-                Your employer has configured the connection but hasn't activated it yet.
-              </p>
-            </div>
+              <p>Your employer has configured the connection but hasn&apos;t activated it yet.</p>
+            </Banner>
           )}
         </div>
       )}

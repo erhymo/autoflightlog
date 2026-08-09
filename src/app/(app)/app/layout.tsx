@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { LayoutDashboard, BookOpen, Plug, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
 
@@ -48,18 +50,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-6 space-y-1">
-            <NavLink href="/app/dashboard">Dashboard</NavLink>
-            <NavLink href="/app/logbook">Logbook</NavLink>
-            <NavLink href="/app/integrations">Integrations</NavLink>
-            <NavLink href="/app/me">Settings</NavLink>
-	            {showAdmin && <NavLink href="/app/admin">Admin</NavLink>}
+            <NavLink href="/app/dashboard" icon={LayoutDashboard}>Dashboard</NavLink>
+            <NavLink href="/app/logbook" icon={BookOpen}>Logbook</NavLink>
+            <NavLink href="/app/integrations" icon={Plug}>Integrations</NavLink>
+            <NavLink href="/app/me" icon={Settings}>Settings</NavLink>
+	            {showAdmin && <NavLink href="/app/admin" icon={ShieldCheck}>Admin</NavLink>}
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+          <div
+            className="p-4 border-t flex items-center justify-between gap-2"
+            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+          >
             <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.4)" }}>
 	              © 2026 AutoFlightLog
             </p>
+            <ThemeToggle variant="sidebar" />
           </div>
         </aside>
 
@@ -72,26 +78,29 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	          }}
 	        >
 	          {/* Brand Lockup */}
-	          <div className="px-4 py-3 flex items-center gap-2.5">
-	            <div
-	              className="flex items-center justify-center h-7 w-7 rounded-md border text-base font-semibold"
-	              style={{
-	                borderColor: "rgba(255, 255, 255, 0.85)",
-	                color: "#FFFFFF",
-	              }}
-	            >
-	              A
+	          <div className="px-4 py-3 flex items-center justify-between gap-2.5">
+	            <div className="flex items-center gap-2.5">
+	              <div
+	                className="flex items-center justify-center h-7 w-7 rounded-md border text-base font-semibold"
+	                style={{
+	                  borderColor: "rgba(255, 255, 255, 0.85)",
+	                  color: "#FFFFFF",
+	                }}
+	              >
+	                A
+	              </div>
+	              <h1 className="text-xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
 	            </div>
-	            <h1 className="text-xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
+	            <ThemeToggle variant="sidebar" />
 	          </div>
 
           {/* Navigation Tabs */}
           <nav className="flex overflow-x-auto px-2 pb-2 gap-1">
-            <MobileNavLink href="/app/dashboard">Dashboard</MobileNavLink>
-            <MobileNavLink href="/app/logbook">Logbook</MobileNavLink>
-            <MobileNavLink href="/app/integrations">Integrations</MobileNavLink>
-            <MobileNavLink href="/app/me">Settings</MobileNavLink>
-	            {showAdmin && <MobileNavLink href="/app/admin">Admin</MobileNavLink>}
+            <MobileNavLink href="/app/dashboard" icon={LayoutDashboard}>Dashboard</MobileNavLink>
+            <MobileNavLink href="/app/logbook" icon={BookOpen}>Logbook</MobileNavLink>
+            <MobileNavLink href="/app/integrations" icon={Plug}>Integrations</MobileNavLink>
+            <MobileNavLink href="/app/me" icon={Settings}>Settings</MobileNavLink>
+	            {showAdmin && <MobileNavLink href="/app/admin" icon={ShieldCheck}>Admin</MobileNavLink>}
           </nav>
         </div>
 
@@ -104,14 +113,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: ReactNode }) {
+function NavLink({ href, icon: Icon, children }: { href: string; icon: LucideIcon; children: ReactNode }) {
   const pathname = usePathname();
   const isActive = pathname === href || pathname?.startsWith(href + "/");
 
   return (
     <Link
       href={href}
-      className="relative block px-4 py-2.5 text-sm font-medium rounded-md transition-all"
+      className="relative flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium rounded-md transition-all"
       style={{
         backgroundColor: isActive ? "rgba(255, 255, 255, 0.1)" : "transparent",
         color: isActive ? "#FFFFFF" : "rgba(255, 255, 255, 0.65)",
@@ -119,25 +128,27 @@ function NavLink({ href, children }: { href: string; children: ReactNode }) {
         paddingLeft: isActive ? "13px" : "16px",
       }}
     >
+      <Icon size={16} strokeWidth={2} className="shrink-0" />
       {children}
     </Link>
   );
 }
 
-function MobileNavLink({ href, children }: { href: string; children: ReactNode }) {
+function MobileNavLink({ href, icon: Icon, children }: { href: string; icon: LucideIcon; children: ReactNode }) {
   const pathname = usePathname();
   const isActive = pathname === href || pathname?.startsWith(href + "/");
 
   return (
     <Link
       href={href}
-      className="px-4 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-all"
+      className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-all"
       style={{
         backgroundColor: isActive ? "rgba(255, 255, 255, 0.15)" : "transparent",
         color: isActive ? "#FFFFFF" : "rgba(255, 255, 255, 0.65)",
         borderBottom: isActive ? "2px solid #38BDF8" : "2px solid transparent",
       }}
     >
+      <Icon size={14} strokeWidth={2} className="shrink-0" />
       {children}
     </Link>
   );

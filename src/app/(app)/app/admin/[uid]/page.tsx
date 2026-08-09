@@ -7,6 +7,7 @@ import { emailInAllowlist, parseAllowlist } from "@/lib/admin/allowlist";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
 
 type AdminUser = {
   uid: string;
@@ -221,11 +222,7 @@ export default function AdminUserDetailPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-lg border p-4 text-sm" style={{ borderColor: "#ef4444", color: "#b91c1c" }}>
-          {error}
-        </div>
-      )}
+      {error && <Banner severity="critical">{error}</Banner>}
 
       <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: "var(--border-default)" }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -247,15 +244,15 @@ export default function AdminUserDetailPage() {
           </div>
           <div>
             <div style={{ color: "var(--text-secondary)" }}>Auth status</div>
-            <div style={{ color: data?.user.disabled ? "#ef4444" : "#16a34a" }}>{data?.user.disabled ? "disabled" : "active"}</div>
+            <div style={{ color: data?.user.disabled ? "var(--status-error)" : "var(--status-active)" }}>{data?.user.disabled ? "disabled" : "active"}</div>
           </div>
           <div>
             <div style={{ color: "var(--text-secondary)" }}>Visibility</div>
-            <div style={{ color: data?.meta?.hidden ? "#b45309" : "#16a34a" }}>{data?.meta?.hidden ? "hidden" : "visible"}</div>
+            <div style={{ color: data?.meta?.hidden ? "var(--status-pending)" : "var(--status-active)" }}>{data?.meta?.hidden ? "hidden" : "visible"}</div>
           </div>
           <div>
             <div style={{ color: "var(--text-secondary)" }}>Setup complete</div>
-            <div style={{ color: data?.flags?.setupComplete ? "#16a34a" : "#b45309" }}>
+            <div style={{ color: data?.flags?.setupComplete ? "var(--status-active)" : "var(--status-pending)" }}>
               {data?.flags?.setupComplete ? "yes" : "no"}
             </div>
           </div>
@@ -282,7 +279,7 @@ export default function AdminUserDetailPage() {
             onClick={() => setConfirmingDelete(true)}
             disabled={!data}
             className="px-3 py-2 rounded-md text-sm font-medium"
-            style={{ backgroundColor: "#ef4444", color: "white" }}
+            style={{ backgroundColor: "var(--status-error)", color: "white" }}
           >
             Delete permanently
           </button>
@@ -345,7 +342,7 @@ export default function AdminUserDetailPage() {
                   <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>
 	                    {String(c.lastTestAt ?? "—")}
                   </td>
-                  <td className="px-4 py-3" style={{ color: c.lastError ? "#ef4444" : "var(--text-muted)" }}>
+                  <td className="px-4 py-3" style={{ color: c.lastError ? "var(--status-error)" : "var(--text-muted)" }}>
 	                    {String(c.lastError ?? "—")}
                   </td>
                 </tr>

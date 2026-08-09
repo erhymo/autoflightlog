@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { severityCardStyle } from "@/lib/ui/statusColors";
+import { Check } from "lucide-react";
 
 interface IntegrationRequest {
   companyName: string;
@@ -120,72 +124,77 @@ export default function EmployerSetupPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen p-6" style={{ backgroundColor: "var(--bg-primary)" }}>
+        <div className="max-w-2xl mx-auto space-y-6 pt-6">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-40 w-full rounded-2xl" />
+        </div>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-2xl rounded-2xl border border-red-200 p-6 bg-white">
-          <h1 className="text-xl font-semibold text-red-900">Could not load setup</h1>
-          <p className="text-sm text-red-600 mt-2">{loadError}</p>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: "var(--bg-primary)" }}>
+        <div className="w-full max-w-2xl">
+          <Banner severity="critical" title="Could not load setup">
+            {loadError}
+          </Banner>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-gray-50">
+    <div className="min-h-screen p-6" style={{ backgroundColor: "var(--bg-primary)" }}>
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="rounded-2xl border border-gray-200 p-6 bg-white">
-          <h1 className="text-xl font-semibold text-gray-900">Employer Integration Setup</h1>
-          <p className="text-sm text-gray-600 mt-1">
+        <div className="rounded-2xl border p-6" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}>
+          <h1 className="text-xl font-semibold" style={{ color: "var(--aviation-blue)" }}>Employer Integration Setup</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             Configure API access for pilot logbook data synchronization
           </p>
         </div>
 
         {/* Request Details */}
-        <div className="rounded-2xl border border-gray-200 p-6 bg-white">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Request Details</h2>
+        <div className="rounded-2xl border p-6" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Request Details</h2>
           <div className="space-y-2 text-sm">
             <div className="flex">
-              <span className="w-32 text-gray-600">Company:</span>
-              <span className="text-gray-900 font-medium">{request?.companyName}</span>
+              <span className="w-32" style={{ color: "var(--text-secondary)" }}>Company:</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{request?.companyName}</span>
             </div>
             <div className="flex">
-              <span className="w-32 text-gray-600">Crew ID:</span>
-              <span className="text-gray-900 font-medium">{request?.crewId}</span>
+              <span className="w-32" style={{ color: "var(--text-secondary)" }}>Crew ID:</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{request?.crewId}</span>
             </div>
             <div className="flex">
-              <span className="w-32 text-gray-600">Contact Email:</span>
-              <span className="text-gray-900 font-medium">{request?.contactEmail}</span>
+              <span className="w-32" style={{ color: "var(--text-secondary)" }}>Contact Email:</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{request?.contactEmail}</span>
             </div>
           </div>
         </div>
 
         {/* Configuration Form */}
-        <div className="rounded-2xl border border-gray-200 p-6 bg-white">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">API Configuration</h2>
+        <div className="rounded-2xl border p-6" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>API Configuration</h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
                 API Base URL
               </label>
               <input
                 type="text"
                 value={apiBaseUrl}
                 onChange={(e) => setApiBaseUrl(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 p-3 text-gray-900 placeholder:text-gray-400 focus:border-gray-900 focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border-default)] p-3 focus:outline-none focus:border-[var(--aviation-blue)]"
+                style={{ color: "var(--text-primary)" }}
                 placeholder="https://api.yourcompany.com/crew"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
                 Authentication Type
               </label>
               <div className="space-y-2">
@@ -198,7 +207,7 @@ export default function EmployerSetupPage() {
                     onChange={(e) => setAuthType(e.target.value as "api_key")}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm text-gray-900">API Key</span>
+                  <span className="text-sm" style={{ color: "var(--text-primary)" }}>API Key</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -209,20 +218,21 @@ export default function EmployerSetupPage() {
                     onChange={(e) => setAuthType(e.target.value as "bearer_token")}
                     className="w-4 h-4"
                   />
-                  <span className="text-sm text-gray-900">Bearer Token</span>
+                  <span className="text-sm" style={{ color: "var(--text-primary)" }}>Bearer Token</span>
                 </label>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
                 Secret / Token
               </label>
               <input
                 type="password"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 p-3 text-gray-900 placeholder:text-gray-400 focus:border-gray-900 focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border-default)] p-3 focus:outline-none focus:border-[var(--aviation-blue)]"
+                style={{ color: "var(--text-primary)" }}
                 placeholder="Enter API key or token"
               />
             </div>
@@ -231,14 +241,16 @@ export default function EmployerSetupPage() {
               <button
                 onClick={handleTestConnection}
                 disabled={!apiBaseUrl || !secret}
-                className="rounded-xl bg-gray-100 text-gray-900 px-6 py-3 disabled:opacity-50 hover:bg-gray-200 font-medium"
+                className="rounded-xl px-6 py-3 font-medium disabled:opacity-50 transition-colors hover:bg-[var(--border-default)]"
+                style={{ backgroundColor: "var(--bg-hover)", color: "var(--text-primary)" }}
               >
                 Test Connection
               </button>
               <button
                 onClick={handleActivate}
                 disabled={!connector || connector.status !== "inactive" || !!connector.lastError}
-                className="rounded-xl bg-black text-white px-6 py-3 disabled:opacity-50 hover:bg-gray-800 font-medium"
+                className="rounded-xl text-white px-6 py-3 disabled:opacity-50 font-medium transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--aviation-blue)" }}
               >
                 Activate
               </button>
@@ -249,68 +261,54 @@ export default function EmployerSetupPage() {
         {/* Status Box */}
         {connector && (
           <div
-            className={`rounded-2xl border p-6 ${
-              connector.status === "active"
-                ? "bg-green-50 border-green-200"
-                : connector.status === "error"
-                ? "bg-red-50 border-red-200"
-                : "bg-gray-50 border-gray-200"
-            }`}
+            className="rounded-2xl border p-6"
+            style={severityCardStyle(
+              connector.status === "active" ? "success" : connector.status === "error" ? "critical" : "neutral"
+            )}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Connection Status</h2>
+            <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Connection Status</h2>
             <div className="space-y-2 text-sm">
               <div className="flex">
-                <span className="w-32 text-gray-600">Status:</span>
-                <span
-                  className={`font-medium ${
-                    connector.status === "active"
-                      ? "text-green-900"
-                      : connector.status === "error"
-                      ? "text-red-900"
-                      : "text-gray-900"
-                  }`}
-                >
-                  {connector.status.toUpperCase()}
-                </span>
+                <span className="w-32" style={{ color: "var(--text-secondary)" }}>Status:</span>
+                <span className="font-medium">{connector.status.toUpperCase()}</span>
               </div>
               {connector.lastTestAt && (
                 <div className="flex">
-                  <span className="w-32 text-gray-600">Last Tested:</span>
-                  <span className="text-gray-900">
-                    {new Date(connector.lastTestAt).toLocaleString()}
-                  </span>
+                  <span className="w-32" style={{ color: "var(--text-secondary)" }}>Last Tested:</span>
+                  <span>{new Date(connector.lastTestAt).toLocaleString()}</span>
                 </div>
               )}
               {connector.lastError && (
                 <div className="flex">
-                  <span className="w-32 text-gray-600">Error:</span>
-                  <span className="text-red-900 font-medium">{connector.lastError}</span>
+                  <span className="w-32" style={{ color: "var(--text-secondary)" }}>Error:</span>
+                  <span className="font-medium">{connector.lastError}</span>
                 </div>
               )}
             </div>
 
             {connector.status === "active" && (
               <div className="mt-4 space-y-3">
-                <div className="p-4 bg-white rounded-xl border border-green-200">
-                  <p className="text-green-900 font-medium">
-                    ✓ Integration is active. Automatic sync is coming soon.
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}>
+                  <p className="font-medium flex items-center gap-1.5" style={{ color: "var(--severity-success-text)" }}>
+                    <Check size={14} strokeWidth={3} />
+                    Integration is active. Automatic sync is coming soon.
                   </p>
                 </div>
 
-                <div className="p-4 bg-white rounded-xl border border-gray-200">
-                  <h3 className="font-semibold text-gray-900 mb-1">Sync</h3>
-                  <p className="text-sm text-gray-700">This version does not sync flight data yet.</p>
+                <div className="p-4 rounded-xl border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}>
+                  <h3 className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Sync</h3>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>This version does not sync flight data yet.</p>
 
                   {connector.lastSyncAttemptAt && (
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
                       Last attempt: {new Date(connector.lastSyncAttemptAt).toLocaleString()}
                       {connector.lastSyncStatus && (
-                        <span className="ml-2 text-gray-700">({connector.lastSyncStatus})</span>
+                        <span className="ml-2">({connector.lastSyncStatus})</span>
                       )}
                     </div>
                   )}
                   {connector.lastSyncStatus === "error" && connector.lastSyncError && (
-                    <div className="text-sm text-red-700 mt-1">Sync error: {connector.lastSyncError}</div>
+                    <div className="text-sm mt-1" style={{ color: "var(--status-error)" }}>Sync error: {connector.lastSyncError}</div>
                   )}
                 </div>
               </div>

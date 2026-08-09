@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { severityCardStyle } from "@/lib/ui/statusColors";
 
 export function PwaClient() {
   // NOTE: `navigator.onLine` and the browser's online/offline events are not always reliable.
@@ -87,11 +88,7 @@ export function PwaClient() {
   return (
     <div
       className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-[420px] rounded-xl border px-4 py-3 shadow-lg"
-      style={{
-        backgroundColor: "#FEF3C7",
-        borderColor: "#F59E0B",
-        color: "#92400E",
-      }}
+      style={severityCardStyle("warning")}
       role="status"
       aria-live="polite"
     >

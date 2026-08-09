@@ -47,9 +47,12 @@ export function TypedConfirmModal({ title, steps, confirmLabel = "Confirm", onCa
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <p className="mt-2 whitespace-pre-line text-sm text-gray-600">{step.prompt}</p>
+      <div
+        className="w-full max-w-md rounded-2xl border p-6 shadow-xl"
+        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}
+      >
+        <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h2>
+        <p className="mt-2 whitespace-pre-line text-sm" style={{ color: "var(--text-secondary)" }}>{step.prompt}</p>
         <input
           autoFocus
           type="text"
@@ -61,19 +64,22 @@ export function TypedConfirmModal({ title, steps, confirmLabel = "Confirm", onCa
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdvance();
           }}
-          className="mt-3 w-full rounded-xl border border-gray-300 p-3 text-gray-900 focus:border-gray-900 focus:outline-none"
+          className="mt-3 w-full rounded-xl border border-[var(--border-default)] p-3 focus:outline-none focus:border-[var(--text-primary)]"
+          style={{ color: "var(--text-primary)" }}
         />
-        {mismatch && <p className="mt-2 text-sm text-red-600">That didn&apos;t match. Try again, or cancel.</p>}
+        {mismatch && <p className="mt-2 text-sm" style={{ color: "var(--status-error)" }}>That didn&apos;t match. Try again, or cancel.</p>}
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="rounded-xl px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-xl px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ color: "var(--text-secondary)" }}
           >
             Cancel
           </button>
           <button
             onClick={handleAdvance}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            className="rounded-xl px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "var(--status-error)" }}
           >
             {isLastStep ? confirmLabel : "Next"}
           </button>

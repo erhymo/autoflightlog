@@ -8,6 +8,9 @@ import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { getFieldSuggestions, getPrefillValuesForNewEntry } from "@/lib/suggestions/logbookDefaults";
 import { findDuplicateEntry } from "@/lib/duplicateDetection";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Banner } from "@/components/ui/Banner";
+import { TriangleAlert } from "lucide-react";
 
 function findMostRecentAircraftForRegistration(
   entries: LogbookEntry[],
@@ -421,8 +424,9 @@ export default function EditEntryPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <p className="text-gray-600">Loading...</p>
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     );
   }
@@ -503,13 +507,8 @@ export default function EditEntryPage() {
 		          type="date"
 		          value={value}
 		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		          className="w-full rounded-lg border p-3 text-base transition-colors"
-		          style={{
-		            borderColor: "var(--border-default)",
-		            color: "var(--text-primary)",
-		          }}
-		          onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-		          onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		          style={{ color: "var(--text-primary)" }}
 		        />
 		      );
 		    } else if (fieldDef.type === "number") {
@@ -518,13 +517,8 @@ export default function EditEntryPage() {
 		          type="number"
 		          value={value}
 		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		          className="w-full rounded-lg border p-3 text-base transition-colors"
-		          style={{
-		            borderColor: "var(--border-default)",
-		            color: "var(--text-primary)",
-		          }}
-		          onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-		          onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		          style={{ color: "var(--text-primary)" }}
 		        />
 		      );
 		    } else if (fieldDef.type === "time") {
@@ -533,13 +527,8 @@ export default function EditEntryPage() {
 		          type="time"
 		          value={value}
 		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		          className="w-full rounded-lg border p-3 text-base transition-colors"
-		          style={{
-		            borderColor: "var(--border-default)",
-		            color: "var(--text-primary)",
-		          }}
-		          onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-		          onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		          style={{ color: "var(--text-primary)" }}
 		        />
 		      );
 		    } else if (fieldKey === "remarks") {
@@ -549,13 +538,8 @@ export default function EditEntryPage() {
 		          type="text"
 		          value={value}
 		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		          className="w-full rounded-lg border p-3 text-base transition-colors"
-		          style={{
-		            borderColor: "var(--border-default)",
-		            color: "var(--text-primary)",
-		          }}
-		          onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-		          onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		          style={{ color: "var(--text-primary)" }}
 		        />
 		      );
 		    } else {
@@ -597,13 +581,8 @@ export default function EditEntryPage() {
 		            type="text"
 		            value={value}
 		            onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		            className="w-full rounded-lg border p-3 text-base transition-colors"
-		            style={{
-		              borderColor: "var(--border-default)",
-		              color: "var(--text-primary)",
-		            }}
-		            onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-		            onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+		            className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		            style={{ color: "var(--text-primary)" }}
 		          />
 		        </div>
 		      );
@@ -656,35 +635,22 @@ export default function EditEntryPage() {
 	            Make changes to your logbook entry
 	          </p>
 	          {duplicateEntry && (
-	            <div
-	              className="mt-3 rounded-lg border px-3 py-2 text-xs"
-	              style={{
-	                borderColor: "var(--status-pending)",
-	                backgroundColor: "#FFFBEB",
-	                color: "#92400E",
-	              }}
-	            >
-	              <p className="font-medium">
-	                ⚠ Possible duplicate: an entry with the same date, departure, and arrival already exists.
+	            <Banner severity="warning" size="compact" className="mt-3">
+	              <p className="font-medium flex items-center gap-1.5">
+	                <TriangleAlert size={14} strokeWidth={2.5} />
+	                Possible duplicate: an entry with the same date, departure, and arrival already exists.
 	              </p>
-	            </div>
+	            </Banner>
 	          )}
 	          {validationWarnings.length > 0 && (
-	            <div
-	              className="mt-3 rounded-lg border px-3 py-2 text-xs"
-	              style={{
-	                borderColor: "var(--status-warning)",
-	                backgroundColor: "#FFFBEB",
-	                color: "#92400E",
-	              }}
-	            >
+	            <Banner severity="warning" size="compact" className="mt-3">
 	              <p className="font-medium mb-1">Consistency checks</p>
 	              <ul className="list-disc ml-4 space-y-1">
 	                {validationWarnings.map((w, idx) => (
 	                  <li key={idx}>{w}</li>
 	                ))}
 	              </ul>
-	            </div>
+	            </Banner>
 	          )}
 	        </div>
 	
@@ -729,23 +695,16 @@ export default function EditEntryPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full rounded-lg px-6 py-3.5 text-base font-medium text-white transition-all disabled:opacity-50"
+          className="w-full rounded-lg px-6 py-3.5 text-base font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
           style={{ backgroundColor: "var(--aviation-blue)" }}
-          onMouseEnter={(e) => !saving && (e.currentTarget.style.opacity = "0.9")}
-          onMouseLeave={(e) => !saving && (e.currentTarget.style.opacity = "1")}
         >
           {saving ? "Saving..." : "Save Changes"}
         </button>
         <button
           onClick={handleCancel}
           disabled={saving}
-          className="w-full rounded-lg px-6 py-2.5 text-base font-medium transition-all disabled:opacity-50"
-          style={{
-            backgroundColor: "var(--bg-hover)",
-            color: "var(--text-primary)"
-          }}
-          onMouseEnter={(e) => !saving && (e.currentTarget.style.backgroundColor = "var(--border-default)")}
-          onMouseLeave={(e) => !saving && (e.currentTarget.style.backgroundColor = "var(--bg-hover)")}
+          className="w-full rounded-lg px-6 py-2.5 text-base font-medium bg-[var(--bg-hover)] transition-colors disabled:opacity-50 hover:bg-[var(--border-default)]"
+          style={{ color: "var(--text-primary)" }}
         >
           Cancel
         </button>

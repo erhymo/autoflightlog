@@ -6,6 +6,9 @@ import { listEntries, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Trash2 } from "lucide-react";
 
 const UNDO_DELETE_MS = 6000;
 
@@ -225,22 +228,22 @@ export default function LogbookPage() {
 
 	  if (loading) {
 	    return (
-	      <div className="p-6">
-	        <p className="text-gray-600">Loading...</p>
+	      <div className="p-4 md:p-8 space-y-4">
+	        <Skeleton className="h-8 w-40" />
+	        <Skeleton className="h-64 w-full rounded-xl" />
 	      </div>
 	    );
 	  }
 
 	  if (loadError) {
 	    return (
-	      <div className="p-6 md:p-8">
+	      <div className="p-6 md:p-8 space-y-4">
 	        <h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
 	          Logbook
 	        </h1>
-	        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-	          <p className="text-sm font-medium text-red-900">Kunne ikke laste loggbok.</p>
-	          <p className="text-sm text-red-700 mt-1">{loadError}</p>
-	        </div>
+	        <Banner severity="critical" title="Could not load the logbook.">
+	          {loadError}
+	        </Banner>
 	      </div>
 	    );
 	  }
@@ -251,25 +254,15 @@ export default function LogbookPage() {
 	        <h1 className="text-2xl font-semibold mb-4" style={{ color: "var(--aviation-blue)" }}>
 	          Logbook
 	        </h1>
-	        <div
-	          className="rounded-xl border p-6"
-	          style={{
-	            backgroundColor: "#FEF3C7",
-	            borderColor: "var(--status-pending)",
-	          }}
-	        >
-	          <p className="font-medium" style={{ color: "#92400E" }}>
+	        <Banner severity="warning">
+	          <p className="font-medium">
 	            No fields are selected for your logbook view. Go to{" "}
-	            <a
-	              href="/app/me"
-	              className="underline font-semibold hover:no-underline"
-	              style={{ color: "#92400E" }}
-	            >
+	            <a href="/app/me" className="underline font-semibold hover:no-underline">
 	              Settings
 	            </a>{" "}
 	            to choose which fields to show.
 	          </p>
-	        </div>
+	        </Banner>
 	      </div>
 	    );
 	  }
@@ -355,8 +348,8 @@ export default function LogbookPage() {
 		              Add new entry
 		            </button>
 		            <button
-		              className="rounded-lg px-4 py-2.5 text-sm font-medium border transition-all hover:bg-gray-50"
-		              style={{ borderColor: "var(--border-default)", color: "var(--aviation-blue)", backgroundColor: "var(--bg-card)" }}
+		              className="rounded-lg px-4 py-2.5 text-sm font-medium border bg-[var(--bg-card)] transition-colors hover:bg-[var(--bg-hover)]"
+		              style={{ borderColor: "var(--border-default)", color: "var(--aviation-blue)" }}
 		              onClick={addEntryBasedOnLast}
 		            >
 		              Add based on last
@@ -378,15 +371,9 @@ export default function LogbookPage() {
 	            type="text"
 	            value={registrationFilter}
 	            onChange={(e) => setRegistrationFilter(e.target.value)}
-	            className="w-full rounded-lg border px-3 py-2 text-xs md:text-sm"
-	            style={{
-	              borderColor: "var(--border-default)",
-	              color: "var(--text-primary)",
-	              backgroundColor: "var(--bg-card)",
-	            }}
+	            className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2 text-xs md:text-sm focus:outline-none focus:border-[var(--aviation-blue)]"
+	            style={{ color: "var(--text-primary)" }}
 	            placeholder="e.g. LN-OXI"
-	            onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-	            onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
 	          />
 	        </div>
 	        <div className="flex-1 min-w-[140px]">
@@ -400,15 +387,9 @@ export default function LogbookPage() {
 	            type="text"
 	            value={aircraftFilter}
 	            onChange={(e) => setAircraftFilter(e.target.value)}
-	            className="w-full rounded-lg border px-3 py-2 text-xs md:text-sm"
-	            style={{
-	              borderColor: "var(--border-default)",
-	              color: "var(--text-primary)",
-	              backgroundColor: "var(--bg-card)",
-	            }}
+	            className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-card)] px-3 py-2 text-xs md:text-sm focus:outline-none focus:border-[var(--aviation-blue)]"
+	            style={{ color: "var(--text-primary)" }}
 	            placeholder="e.g. AW169"
-	            onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-	            onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
 	          />
 	        </div>
 	      </div>
@@ -477,10 +458,8 @@ export default function LogbookPage() {
 		              {pagedEntries.map((entry, rowIndex) => (
 	                <tr
 	                  key={entry.id}
-	                  className="border-t transition-colors"
+	                  className="border-t transition-colors hover:bg-[var(--bg-hover)]"
 	                  style={{ borderColor: "var(--border-light)" }}
-	                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--bg-hover)")}
-	                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
 	                >
 	                  <td
 	                    className="px-2 py-2 md:px-3 md:py-3 text-[11px] md:text-xs text-right select-none"
@@ -504,21 +483,11 @@ export default function LogbookPage() {
 	                        e.stopPropagation();
 	                        setDeleteConfirm(entry.id);
 	                      }}
-	                      className="text-red-600 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
+	                      className="transition-colors p-1.5 rounded hover:bg-[var(--severity-critical-bg)]"
+	                      style={{ color: "var(--status-error)" }}
 	                      title="Delete entry"
 	                    >
-	                      <svg
-	                        xmlns="http://www.w3.org/2000/svg"
-	                        className="h-5 w-5"
-	                        viewBox="0 0 20 20"
-	                        fill="currentColor"
-	                      >
-	                        <path
-	                          fillRule="evenodd"
-	                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-	                          clipRule="evenodd"
-	                        />
-	                      </svg>
+	                      <Trash2 size={16} strokeWidth={2} />
 	                    </button>
 	                  </td>
 	                </tr>
@@ -565,14 +534,11 @@ export default function LogbookPage() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg border font-medium transition-colors"
+                className="px-4 py-2 rounded-lg border bg-[var(--bg-card)] font-medium transition-colors hover:bg-[var(--bg-hover)]"
                 style={{
                   borderColor: "var(--border-default)",
                   color: "var(--text-primary)",
-                  backgroundColor: "var(--bg-card)"
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-hover)"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "var(--bg-card)"}
               >
                 Cancel
               </button>

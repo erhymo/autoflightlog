@@ -7,6 +7,8 @@ import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { exportToCSV, downloadCSV, generateExportFilename } from "@/lib/csvExport";
 import { exportToPDF, downloadPDF, getPDFBase64, estimateEntriesPerPage } from "@/lib/pdfExport";
+import { Banner } from "@/components/ui/Banner";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type ExportFormat = "csv" | "pdf";
 type EntrySelection = "all" | "last5" | "last15" | "last30" | "dateRange";
@@ -126,8 +128,9 @@ export default function ExportPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <p style={{ color: "var(--text-secondary)" }}>Loading...</p>
+      <div className="p-6 md:p-8 space-y-4">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     );
   }
@@ -135,13 +138,12 @@ export default function ExportPage() {
 	if (loadError) {
 		return (
 			<div className="p-6 md:p-8">
-				<div className="rounded-xl border border-red-200 bg-red-50 p-4">
-					<p className="text-sm font-medium text-red-900">Kunne ikke laste data for eksport.</p>
-					<p className="text-sm text-red-700 mt-1">{loadError}</p>
+				<Banner severity="critical" title="Could not load export data.">
+					<p>{loadError}</p>
 					<button className="mt-3 text-sm underline" onClick={() => router.push("/app/logbook")}>
-						Gå til Logbook
+						Go to Logbook
 					</button>
-				</div>
+				</Banner>
 			</div>
 		);
 	}
@@ -157,10 +159,8 @@ export default function ExportPage() {
       <div>
         <button
           onClick={() => router.push("/app/me")}
-          className="text-sm mb-4 flex items-center gap-2 transition-colors"
+          className="text-sm mb-4 flex items-center gap-2 transition-opacity hover:opacity-70"
           style={{ color: "var(--aviation-blue)" }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = "0.7"}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
         >
           ← Back to Settings
         </button>
@@ -191,7 +191,7 @@ export default function ExportPage() {
               className="flex-1 rounded-lg border p-4 transition-all"
               style={{
                 borderColor: format === "csv" ? "var(--aviation-blue)" : "var(--border-default)",
-                backgroundColor: format === "csv" ? "rgba(15, 42, 68, 0.05)" : "transparent",
+                backgroundColor: format === "csv" ? "var(--selected-tint)" : "transparent",
                 color: format === "csv" ? "var(--aviation-blue)" : "var(--text-primary)"
               }}
             >
@@ -205,7 +205,7 @@ export default function ExportPage() {
               className="flex-1 rounded-lg border p-4 transition-all"
               style={{
                 borderColor: format === "pdf" ? "var(--aviation-blue)" : "var(--border-default)",
-                backgroundColor: format === "pdf" ? "rgba(15, 42, 68, 0.05)" : "transparent",
+                backgroundColor: format === "pdf" ? "var(--selected-tint)" : "transparent",
                 color: format === "pdf" ? "var(--aviation-blue)" : "var(--text-primary)"
               }}
             >
@@ -235,7 +235,7 @@ export default function ExportPage() {
                 className="rounded-lg border p-3 transition-all text-left"
                 style={{
                   borderColor: entrySelection === option.value ? "var(--aviation-blue)" : "var(--border-default)",
-                  backgroundColor: entrySelection === option.value ? "rgba(15, 42, 68, 0.05)" : "transparent",
+                  backgroundColor: entrySelection === option.value ? "var(--selected-tint)" : "transparent",
                   color: entrySelection === option.value ? "var(--aviation-blue)" : "var(--text-primary)"
                 }}
               >
@@ -260,7 +260,6 @@ export default function ExportPage() {
                 checked={!includeAllFields}
                 onChange={() => setIncludeAllFields(false)}
                 className="w-4 h-4"
-                style={{ accentColor: "var(--aviation-blue)" }}
               />
               <span className="text-sm" style={{ color: "var(--text-primary)" }}>
                 Selected fields only ({view?.columns?.length || 0} fields)
@@ -272,7 +271,6 @@ export default function ExportPage() {
                 checked={includeAllFields}
                 onChange={() => setIncludeAllFields(true)}
                 className="w-4 h-4"
-                style={{ accentColor: "var(--aviation-blue)" }}
               />
               <span className="text-sm" style={{ color: "var(--text-primary)" }}>
                 All available fields ({FIELD_CATALOG.length} fields)
@@ -308,10 +306,9 @@ export default function ExportPage() {
           <button
             onClick={handleExport}
             disabled={selectedEntries.length === 0}
-            className="flex-1 rounded-lg px-6 py-3 font-medium text-white transition-opacity disabled:opacity-50"
+            className="flex-1 rounded-lg px-6 py-3 font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
             style={{ backgroundColor: "var(--aviation-blue)" }}
-            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.opacity = "0.9")}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+
           >
             Download {format.toUpperCase()}
           </button>
@@ -321,7 +318,7 @@ export default function ExportPage() {
             style={{
               borderColor: "var(--aviation-blue)",
               color: "var(--aviation-blue)",
-              backgroundColor: showEmailSection ? "rgba(15, 42, 68, 0.05)" : "transparent"
+              backgroundColor: showEmailSection ? "var(--selected-tint)" : "transparent"
             }}
           >
             {showEmailSection ? "Hide" : "Send via"} Email
@@ -380,25 +377,17 @@ export default function ExportPage() {
             />
           </div>
 
-          <div
-            className="rounded-lg border p-3 text-xs"
-            style={{
-              backgroundColor: "#FEF3C7",
-              borderColor: "var(--status-pending)",
-              color: "#92400E"
-            }}
-          >
+          <Banner severity="warning" size="compact">
             <strong>Note:</strong> This will download the PDF and open your email client.
             You'll need to manually attach the downloaded PDF to the email.
-          </div>
+          </Banner>
 
           <button
             onClick={handleEmailExport}
             disabled={!emailAddresses.trim() || selectedEntries.length === 0}
-            className="w-full rounded-lg px-6 py-3 font-medium text-white transition-opacity disabled:opacity-50"
+            className="w-full rounded-lg px-6 py-3 font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
             style={{ backgroundColor: "var(--aviation-blue)" }}
-            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.opacity = "0.9")}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+
           >
             Prepare Email with PDF
           </button>

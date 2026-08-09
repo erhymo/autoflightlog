@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -63,9 +64,12 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6"
+      className="min-h-screen flex items-center justify-center p-6 relative"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
 	      <div
 	        className="w-full max-w-md rounded-xl border p-10 shadow-lg"
 	        style={{
@@ -116,13 +120,8 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
-              className="w-full rounded-lg border p-3 transition-colors"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)"
-              }}
-              onFocus={(e) => e.target.style.borderColor = "var(--aviation-blue)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
+              className="w-full rounded-lg border border-[var(--border-default)] p-3 transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+              style={{ color: "var(--text-primary)" }}
               placeholder="pilot@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -136,13 +135,8 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
-              className="w-full rounded-lg border p-3 transition-colors"
-              style={{
-                borderColor: "var(--border-default)",
-                color: "var(--text-primary)"
-              }}
-              onFocus={(e) => (e.target.style.borderColor = "var(--aviation-blue)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--border-default)")}
+              className="w-full rounded-lg border border-[var(--border-default)] p-3 transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+              style={{ color: "var(--text-primary)" }}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -158,11 +152,9 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-lg p-3 disabled:opacity-50 font-semibold text-white transition-all"
+            className="w-full rounded-lg p-3 disabled:opacity-50 font-semibold text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: "var(--aviation-blue)" }}
             disabled={!email || password.length < 6 || submitting}
-            onMouseEnter={(e) => email && (e.currentTarget.style.opacity = "0.9")}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
           >
             {submitting
               ? mode === "signup"

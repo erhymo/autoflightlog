@@ -1,8 +1,15 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { severityCardStyle, Severity } from "@/lib/ui/statusColors";
 
 export type ToastVariant = "info" | "success" | "error";
+
+const VARIANT_TO_SEVERITY: Record<ToastVariant, Severity> = {
+  info: "neutral",
+  success: "success",
+  error: "critical",
+};
 
 interface ToastAction {
   label: string;
@@ -28,12 +35,6 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const VARIANT_STYLES: Record<ToastVariant, string> = {
-  info: "border-gray-200 bg-white text-gray-900",
-  success: "border-green-200 bg-green-50 text-green-900",
-  error: "border-red-200 bg-red-50 text-red-900",
-};
-
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
@@ -58,7 +59,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={toast.id}
             role="status"
-            className={`pointer-events-auto flex min-w-[240px] max-w-sm items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ${VARIANT_STYLES[toast.variant]}`}
+            className="pointer-events-auto flex min-w-[240px] max-w-sm items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg"
+            style={severityCardStyle(VARIANT_TO_SEVERITY[toast.variant])}
           >
             <span>{toast.message}</span>
             {toast.action && (
