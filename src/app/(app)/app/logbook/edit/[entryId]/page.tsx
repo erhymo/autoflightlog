@@ -5,9 +5,15 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getEntry, upsertEntry, getTemplate, listEntries, listKnownPlaces, upsertKnownPlace } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, Template, KnownPlace } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
-import { getFieldSuggestions, getPrefillValuesForNewEntry, getRouteAwareArrivalSuggestions } from "@/lib/suggestions/logbookDefaults";
+import {
+  getFieldSuggestions,
+  getPrefillValuesForNewEntry,
+  getRouteAwareArrivalSuggestions,
+  findMostRecentEntryForAircraft,
+  getMirroredRoleFieldKeys,
+} from "@/lib/suggestions/logbookDefaults";
 import { findDuplicateEntry } from "@/lib/duplicateDetection";
-import { computeTotalTimeMinutes, normalizeDurationMinutes } from "@/lib/logbook/timeUnits";
+import { computeTotalTimeMinutes, formatMinutesToHHMM, parseTimeInput } from "@/lib/logbook/timeUnits";
 import { requestCurrentPosition, findNearestPlace, GeoPosition } from "@/lib/geo/geolocation";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -39,31 +45,6 @@ function findMostRecentAircraftForRegistration(
   }
 
   return bestAircraft;
-}
-
-function findMostRecentEntryForAircraft(
-  entries: LogbookEntry[],
-  aircraftRaw: unknown
-): LogbookEntry | null {
-  if (typeof aircraftRaw !== "string") return null;
-  const target = aircraftRaw.trim().toUpperCase();
-  if (!target) return null;
-
-  let best: LogbookEntry | null = null;
-  let bestTimestamp = "";
-
-  for (const entry of entries) {
-    const ac = String((entry.values as any)?.aircraft ?? "").trim().toUpperCase();
-    if (!ac || ac !== target) continue;
-
-    const ts = entry.updatedAt || entry.createdAt || "";
-    if (!best || ts > bestTimestamp) {
-      best = entry;
-      bestTimestamp = ts;
-    }
-  }
-
-  return best;
 }
 
 function nowIso() {
@@ -254,21 +235,6 @@ export default function EditEntryPage() {
 			    // eslint-disable-next-line react-hooks/exhaustive-deps
 			  }, [entryId, router, basedOn]);
 
-		  const MULTI_ENGINE_MULTI_PILOT_TYPES = new Set([
-		    "AW169",
-		    "AW139",
-		    "AW189",
-		    "A145",
-		    "A135",
-		  ]);
-
-		  function isMultiEngineMultiPilotType(aircraftRaw: unknown): boolean {
-		    if (typeof aircraftRaw !== "string") return false;
-		    const v = aircraftRaw.trim().toUpperCase();
-		    if (!v) return false;
-		    return MULTI_ENGINE_MULTI_PILOT_TYPES.has(v);
-		  }
-
 		  function handleFieldChange(fieldKey: string, value: any) {
 		    if (!entry) return;
 
@@ -341,6 +307,7 @@ export default function EditEntryPage() {
 		    // When both departure and arrival times are set, calculate "Total Time of
 		    // flight" automatically, unless the user has manually overridden that
 		    // value.
+		    let finalizedTotalTime: number | null = null;
 		    if (fieldKey === "departureTime" || fieldKey === "arrivalTime") {
 		      const departure =
 		        fieldKey === "departureTime" ? nextValue : nextValues["departureTime"] ?? entry.values["departureTime"];
@@ -354,48 +321,33 @@ export default function EditEntryPage() {
 		        const minutes = computeTotalTimeMinutes(departure, arrival);
 		        if (minutes != null) {
 		          (nextValues as any).totalTime = minutes;
+		          finalizedTotalTime = minutes;
 		        }
 		      }
 		    }
 
-		    // Hvis dette er en multi-engine / multi-pilot-type (AW169, AW139, AW189, A145, A135)
-		    // og brukeren skriver inn tid (uansett om det er i Total Time eller SE/ME-feltene),
-		    // speiler vi denne tiden til Multi-pilot time, Dual time og Total Time of flight.
-		    const aircraftType = nextValues["aircraft"] ?? entry.values["aircraft"];
-		    const isMultiMpType = isMultiEngineMultiPilotType(aircraftType);
-
-		    const isTimeField =
-		      fieldKey === "totalTime" ||
-		      fieldKey === "singlePilotSeTime" ||
-		      fieldKey === "singlePilotMeTime" ||
-		      fieldKey === "multiPilotTime" ||
-		      fieldKey === "dualTime";
-
-		    if (isMultiMpType && isTimeField) {
-		      const raw = typeof nextValue === "string" ? nextValue : String(nextValue ?? "");
-		      const trimmed = raw.trim();
-		      if (trimmed) {
-		        (nextValues as any).multiPilotTime = trimmed;
-		        (nextValues as any).dualTime = trimmed;
-		        (nextValues as any).totalTime = trimmed;
-		      }
+		    // A fully-parsed Total Time value - either just typed and blurred (see
+		    // renderFieldRow's onBlur for duration fields), or auto-calculated above
+		    // from departure/arrival times just now.
+		    if (fieldKey === "totalTime" && typeof nextValue === "number") {
+		      finalizedTotalTime = nextValue;
 		    }
 
-		    // For ordinary single-pilot flights, PIC Time is almost always the
-		    // same as Total Time of flight - auto-fill it whenever Total Time
-		    // changes (directly, or via the departure/arrival calculation
-		    // above), unless the pilot has manually overridden PIC Time on
-		    // this entry. Multi-pilot aircraft are excluded since PIC time
-		    // there depends on crew role, not just block time.
-		    const totalTimeJustChanged =
-		      fieldKey === "totalTime" || fieldKey === "departureTime" || fieldKey === "arrivalTime";
-		    const hasManualPicOverride =
-		      nextManualOverrides.picTime === true || entry.manualOverrides?.picTime === true;
-
-		    if (!isMultiMpType && totalTimeJustChanged && !hasManualPicOverride) {
-		      const effectiveTotalTime = (nextValues as any).totalTime;
-		      if (effectiveTotalTime !== undefined && effectiveTotalTime !== null && effectiveTotalTime !== "") {
-		        (nextValues as any).picTime = effectiveTotalTime;
+		    // Which role-time fields (PIC / Co-pilot / Dual / Instructor /
+		    // Multi-pilot / Turbine / Single-pilot SE / ME) should mirror Total
+		    // Time is learned from the most recent flight logged with this
+		    // aircraft type, rather than hardcoded per type - a pilot's crew
+		    // position (e.g. PIC vs co-pilot) can change over time even on the
+		    // same aircraft, so each entry defaults to whichever field(s) applied
+		    // last time instead of assuming one fixed role forever.
+		    if (finalizedTotalTime != null) {
+		      const aircraftType = nextValues["aircraft"] ?? entry.values["aircraft"];
+		      const mirroredKeys = getMirroredRoleFieldKeys(allEntries, aircraftType);
+		      for (const key of mirroredKeys) {
+		        const hasManualOverride =
+		          nextManualOverrides[key] === true || entry.manualOverrides?.[key] === true;
+		        if (hasManualOverride) continue;
+		        (nextValues as any)[key] = finalizedTotalTime;
 		      }
 		    }
 
@@ -562,28 +514,45 @@ export default function EditEntryPage() {
 		      );
 		    } else if (fieldDef.type === "number") {
 		      const isDurationField = fieldDef.category === "time" || fieldKey === "syntheticTime";
-		      fieldControl = (
-		        <input
-		          type="number"
-		          step={1}
-		          min={0}
-		          value={value}
-		          onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
-		          onBlur={(e) => {
-		            // Safety net: if a duration field was typed as decimal
-		            // hours out of habit (e.g. "1.5"), normalize it to
-		            // minutes once the pilot moves on, instead of silently
-		            // saving the wrong unit.
-		            if (!isDurationField) return;
-		            const normalized = normalizeDurationMinutes(e.target.value);
-		            if (e.target.value !== "" && String(normalized) !== String(value)) {
-		              handleFieldChange(fieldKey, normalized);
-		            }
-		          }}
-		          className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
-		          style={{ color: "var(--text-primary)" }}
-		        />
-		      );
+
+		      if (isDurationField) {
+		        // Durations are typed as "H:MM" (e.g. "1:21"), matching how the
+		        // paper/EASA logbook writes them - the underlying stored value is
+		        // still whole minutes. The field shows the formatted "H:MM" as
+		        // long as the stored value is still a clean number (i.e. nothing
+		        // has been typed into it yet this session); once the pilot starts
+		        // typing, the raw text is shown until it's parsed on blur.
+		        const rawStored = entry.values[fieldKey];
+		        const displayValue =
+		          typeof rawStored === "number" ? formatMinutesToHHMM(rawStored) : value;
+		        fieldControl = (
+		          <input
+		            type="text"
+		            inputMode="numeric"
+		            placeholder="t:mm"
+		            value={displayValue}
+		            onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+		            onBlur={(e) => {
+		              if (e.target.value === "") return;
+		              handleFieldChange(fieldKey, parseTimeInput(e.target.value));
+		            }}
+		            className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		            style={{ color: "var(--text-primary)" }}
+		          />
+		        );
+		      } else {
+		        fieldControl = (
+		          <input
+		            type="number"
+		            step={1}
+		            min={0}
+		            value={value}
+		            onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
+		            className="w-full rounded-lg border border-[var(--border-default)] p-3 text-base transition-colors focus:outline-none focus:border-[var(--aviation-blue)]"
+		            style={{ color: "var(--text-primary)" }}
+		          />
+		        );
+		      }
 		    } else if (fieldDef.type === "time") {
 		      fieldControl = (
 		        <input

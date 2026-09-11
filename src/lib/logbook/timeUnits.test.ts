@@ -5,6 +5,7 @@ import {
   migrateLegacyDurationFields,
   normalizeDurationMinutes,
   parseClockTimeToMinutes,
+  parseTimeInput,
 } from "./timeUnits";
 import type { LogbookEntry } from "@/types/domain";
 
@@ -65,6 +66,24 @@ describe("normalizeDurationMinutes", () => {
     expect(normalizeDurationMinutes("")).toBe(0);
     expect(normalizeDurationMinutes(null)).toBe(0);
     expect(normalizeDurationMinutes("abc")).toBe(0);
+  });
+});
+
+describe("parseTimeInput", () => {
+  it("parses H:MM as hours and minutes", () => {
+    expect(parseTimeInput("1:21")).toBe(81);
+    expect(parseTimeInput("0:46")).toBe(46);
+    expect(parseTimeInput("12:05")).toBe(725);
+  });
+
+  it("falls back to decimal-hours / plain-minutes for input with no colon", () => {
+    expect(parseTimeInput("1.5")).toBe(90);
+    expect(parseTimeInput("90")).toBe(90);
+  });
+
+  it("returns 0 for empty input", () => {
+    expect(parseTimeInput("")).toBe(0);
+    expect(parseTimeInput(null)).toBe(0);
   });
 });
 

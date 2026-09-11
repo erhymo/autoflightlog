@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { listEntries, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
-import { formatMinutesToHHMM } from "@/lib/logbook/timeUnits";
+import { formatMinutesToHHMM, isDurationFieldId } from "@/lib/logbook/timeUnits";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Banner } from "@/components/ui/Banner";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -19,6 +19,14 @@ function parseDateTime(value: unknown): number {
   if (!value) return 0;
   const timestamp = new Date(String(value)).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function formatCellValue(fieldId: string, value: unknown): string {
+  if (value === undefined || value === null || value === "") return "-";
+  if (isDurationFieldId(fieldId) && typeof value === "number") {
+    return formatMinutesToHHMM(value);
+  }
+  return String(value);
 }
 
 function parseNumeric(value: unknown): number {
@@ -475,7 +483,7 @@ export default function LogbookPage() {
 	                      style={{ color: "var(--text-primary)" }}
 	                      onClick={() => router.push(`/app/logbook/edit/${entry.id}`)}
 	                    >
-	                      {entry.values[col.fieldId] ?? "-"}
+	                      {formatCellValue(col.fieldId, entry.values[col.fieldId])}
 	                    </td>
 	                  ))}
 	                  <td className="px-4 py-3">

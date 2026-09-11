@@ -62,6 +62,29 @@ export function normalizeDurationMinutes(raw: unknown): number {
 }
 
 /**
+ * Parses duration input in the pilot's preferred "H:MM" format (e.g. "1:21"
+ * for 1 hour 21 minutes), which is how EASA logbook duration columns are
+ * conventionally written. Falls back to normalizeDurationMinutes for
+ * pasted/legacy-style input with no colon (plain minutes, or decimal hours
+ * typed out of habit), so those keep working too.
+ */
+export function parseTimeInput(raw: unknown): number {
+  if (raw === null || raw === undefined || raw === "") return 0;
+  const str = String(raw).trim();
+  if (!str) return 0;
+
+  const colonMatch = str.match(/^(-?\d+):(\d{1,2})$/);
+  if (colonMatch) {
+    const hours = parseInt(colonMatch[1], 10);
+    const minutes = parseInt(colonMatch[2], 10);
+    const sign = hours < 0 ? -1 : 1;
+    return sign * (Math.abs(hours) * 60 + minutes);
+  }
+
+  return normalizeDurationMinutes(str);
+}
+
+/**
  * Repairs a logbook entry's duration fields that still hold a pre-fix
  * decimal-hours value (e.g. 0.7 meaning 42 minutes) instead of whole
  * minutes. Every code path since normalizeDurationMinutes was introduced
