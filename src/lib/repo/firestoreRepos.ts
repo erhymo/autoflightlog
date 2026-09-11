@@ -12,6 +12,7 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import type { Timestamp } from "firebase/firestore";
 
@@ -221,13 +222,30 @@ export async function deleteEntry(entryId: string): Promise<void> {
  * Permanently deletes every logbook entry for the current user (e.g. to
  * start over from a re-imported source). Irreversible - callers must get
  * explicit, typed confirmation before calling this.
+ *
+ * Uses batched writes (Firestore's own batch mechanism, capped well under
+ * its 500-writes-per-batch limit) committed one batch at a time, rather
+ * than firing one deleteDoc() per document in parallel - with a few
+ * hundred entries (e.g. after several import attempts), that many
+ * simultaneous individual requests can overwhelm the connection and make
+ * the operation appear to hang indefinitely instead of completing.
  */
 export async function deleteAllEntries(): Promise<number> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snaps = await getDocs(collection(db, `users/${uid}/entries`));
-  await Promise.all(snaps.docs.map((d) => deleteDoc(d.ref)));
-  return snaps.docs.length;
+  const docs = snaps.docs;
+
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    for (const d of docs.slice(i, i + BATCH_SIZE)) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+  }
+
+  return docs.length;
 }
 
 export async function getUserFlags(): Promise<{ setupComplete?: boolean }> {
