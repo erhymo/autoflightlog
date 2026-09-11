@@ -79,16 +79,14 @@ export default function LoginPage() {
 	      >
 	        {/* Brand Lockup */}
 	        <div className="flex flex-col items-center mb-8">
-	          {/* Simple A logo */}
-	          <div
-	            className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border-2 text-3xl font-semibold"
-	            style={{
-	              borderColor: "var(--aviation-blue)",
-	              color: "var(--aviation-blue)",
-	            }}
-	          >
-	            A
-	          </div>
+	          <img
+	            src="/assets/logo/autoflightlog-icon.svg"
+	            alt="AutoFlightLog"
+	            className="mb-3 h-16 w-16 rounded-2xl shadow-sm"
+	          />
+	          <h1 className="text-xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
+	            AutoFlightLog
+	          </h1>
 
 	          {/* Tagline */}
 	          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>

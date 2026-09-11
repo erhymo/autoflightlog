@@ -36,15 +36,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	            className="p-5 border-b flex items-center gap-3"
 	            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
 	          >
-	            <div
-	              className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-md border text-lg font-semibold"
-	              style={{
-	                borderColor: "rgba(255, 255, 255, 0.85)",
-	                color: "#FFFFFF",
-	              }}
-	            >
-	              A
-	            </div>
+	            <img
+	              src="/assets/logo/autoflightlog-icon.svg"
+	              alt=""
+	              className="flex-shrink-0 h-9 w-9 rounded-lg shadow-sm"
+	            />
 	            <h1 className="text-2xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
 	          </div>
 
@@ -80,15 +76,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	          {/* Brand Lockup */}
 	          <div className="px-4 py-3 flex items-center justify-between gap-2.5">
 	            <div className="flex items-center gap-2.5">
-	              <div
-	                className="flex items-center justify-center h-7 w-7 rounded-md border text-base font-semibold"
-	                style={{
-	                  borderColor: "rgba(255, 255, 255, 0.85)",
-	                  color: "#FFFFFF",
-	                }}
-	              >
-	                A
-	              </div>
+	              <img
+	                src="/assets/logo/autoflightlog-icon.svg"
+	                alt=""
+	                className="h-8 w-8 rounded-lg shadow-sm"
+	              />
 	              <h1 className="text-xl font-semibold text-white tracking-tight">AutoFlightLog</h1>
 	            </div>
 	            <ThemeToggle variant="sidebar" />
