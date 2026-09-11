@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { computeTotalTimeMinutes, normalizeDurationMinutes, parseClockTimeToMinutes } from "./timeUnits";
+import {
+  computeTotalTimeMinutes,
+  formatMinutesToHHMM,
+  migrateLegacyDurationFields,
+  normalizeDurationMinutes,
+  parseClockTimeToMinutes,
+} from "./timeUnits";
+import type { LogbookEntry } from "@/types/domain";
+
+function makeEntry(values: Record<string, any>): LogbookEntry {
+  return {
+    id: "e1",
+    templateId: "tmpl_easa_default",
+    values,
+    source: { system: "manual" },
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
 
 describe("parseClockTimeToMinutes", () => {
   it("parses HH:MM into minutes since midnight", () => {
@@ -47,5 +65,46 @@ describe("normalizeDurationMinutes", () => {
     expect(normalizeDurationMinutes("")).toBe(0);
     expect(normalizeDurationMinutes(null)).toBe(0);
     expect(normalizeDurationMinutes("abc")).toBe(0);
+  });
+});
+
+describe("formatMinutesToHHMM", () => {
+  it("formats whole minutes as HH:MM", () => {
+    expect(formatMinutesToHHMM(515)).toBe("08:35");
+    expect(formatMinutesToHHMM(0)).toBe("00:00");
+  });
+
+  it("rounds away stray float noise instead of leaking decimals", () => {
+    expect(formatMinutesToHHMM(515.7)).toBe("08:36");
+    expect(formatMinutesToHHMM(35.699999999999996)).toBe("00:36");
+  });
+
+  it("clamps negative input to zero", () => {
+    expect(formatMinutesToHHMM(-5)).toBe("00:00");
+  });
+});
+
+describe("migrateLegacyDurationFields", () => {
+  it("converts a pre-fix decimal-hours value to minutes", () => {
+    const entry = makeEntry({ totalTime: 0.7, picTime: 0.7, landingsDay: 1 });
+    const { entry: migrated, changed } = migrateLegacyDurationFields(entry);
+    expect(changed).toBe(true);
+    expect(migrated.values.totalTime).toBe(42);
+    expect(migrated.values.picTime).toBe(42);
+    // Non-duration fields are left untouched.
+    expect(migrated.values.landingsDay).toBe(1);
+  });
+
+  it("leaves already-correct whole-minute values untouched", () => {
+    const entry = makeEntry({ totalTime: 515, picTime: "515", nightTime: 0 });
+    const { entry: migrated, changed } = migrateLegacyDurationFields(entry);
+    expect(changed).toBe(false);
+    expect(migrated).toBe(entry);
+  });
+
+  it("ignores empty duration fields", () => {
+    const entry = makeEntry({ totalTime: "" });
+    const { changed } = migrateLegacyDurationFields(entry);
+    expect(changed).toBe(false);
   });
 });

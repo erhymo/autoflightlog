@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { listEntries, getView, deleteEntry } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { EASA_LOGBOOK_LAYOUT, EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
+import { formatMinutesToHHMM } from "@/lib/logbook/timeUnits";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Banner } from "@/components/ui/Banner";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -282,16 +283,16 @@ export default function LogbookPage() {
 		            <p className="text-[11px] md:text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
 		              Totals for current filter:
 		              {typeof totals.totalTime === "number" && totals.totalTime > 0 && (
-		                <span className="ml-1">Total {totals.totalTime.toFixed(1)} h</span>
+		                <span className="ml-1">Total {formatMinutesToHHMM(totals.totalTime)}</span>
 		              )}
 		              {typeof totals.picTime === "number" && totals.picTime > 0 && (
-		                <span className="ml-2">PIC {totals.picTime.toFixed(1)} h</span>
+		                <span className="ml-2">PIC {formatMinutesToHHMM(totals.picTime)}</span>
 		              )}
 		              {typeof totals.nightTime === "number" && totals.nightTime > 0 && (
-		                <span className="ml-2">Night {totals.nightTime.toFixed(1)} h</span>
+		                <span className="ml-2">Night {formatMinutesToHHMM(totals.nightTime)}</span>
 		              )}
 		              {typeof totals.ifrTime === "number" && totals.ifrTime > 0 && (
-		                <span className="ml-2">IFR {totals.ifrTime.toFixed(1)} h</span>
+		                <span className="ml-2">IFR {formatMinutesToHHMM(totals.ifrTime)}</span>
 		              )}
 		              {typeof totals.landingsDay === "number" && totals.landingsDay > 0 && (
 		                <span className="ml-2">LDG day {totals.landingsDay}</span>

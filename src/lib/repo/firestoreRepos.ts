@@ -1,6 +1,7 @@
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { getFirebaseClient } from "@/lib/firebase/client";
+import { migrateLegacyDurationFields } from "@/lib/logbook/timeUnits";
 import type { Certificate, KnownPlace, LogbookEntry, Template, ViewDefinition } from "@/types/domain";
 import {
   collection,
@@ -70,6 +71,25 @@ function entryFromDoc(data: any): LogbookEntry {
     createdAt: toIsoString(data.createdAt),
     updatedAt: toIsoString(data.updatedAt),
   } as LogbookEntry;
+}
+
+/**
+ * Repairs an entry's duration fields if they still hold a pre-fix
+ * decimal-hours value, and best-effort persists the repair so future
+ * loads don't need to migrate it again. Never blocks the read on the
+ * write, and never touches createdAt/updatedAt so this silent repair
+ * doesn't make an old entry look freshly edited to other features
+ * (e.g. "most recent flight" prefill logic).
+ */
+function withMigratedDurations(entry: LogbookEntry): LogbookEntry {
+  const { entry: migrated, changed } = migrateLegacyDurationFields(entry);
+  if (changed) {
+    void upsertEntry(migrated).catch(() => {
+      // Best-effort only - the corrected values are still returned to the
+      // caller for this load even if the repair write fails.
+    });
+  }
+  return migrated;
 }
 
 function entryToDoc(e: LogbookEntry): Record<string, any> {
@@ -175,14 +195,14 @@ export async function listEntries(): Promise<LogbookEntry[]> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snaps = await getDocs(collection(db, `users/${uid}/entries`));
-  return snaps.docs.map((d) => entryFromDoc(d.data()));
+  return snaps.docs.map((d) => withMigratedDurations(entryFromDoc(d.data())));
 }
 
 export async function getEntry(entryId: string): Promise<LogbookEntry | null> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snap = await getDoc(doc(db, `users/${uid}/entries/${entryId}`));
-  return snap.exists() ? entryFromDoc(snap.data()) : null;
+  return snap.exists() ? withMigratedDurations(entryFromDoc(snap.data())) : null;
 }
 
 export async function upsertEntry(e: LogbookEntry) {

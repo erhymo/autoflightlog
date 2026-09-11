@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { listEntries, listConnectors, listCertificates } from "@/lib/repo/firestoreRepos";
 import { Certificate, LogbookEntry } from "@/types/domain";
 import { calculateCurrencySummary, WindowedRequirement } from "@/lib/currency/currency";
+import { formatMinutesToHHMM } from "@/lib/logbook/timeUnits";
 import { getCertificateStatus, CertificateUrgency } from "@/lib/certificates/certificateStatus";
 import { SEVERITY_STYLES, Severity } from "@/lib/ui/statusColors";
 import { Banner } from "@/components/ui/Banner";
@@ -59,12 +60,6 @@ type ConnectorSummary = {
 	lastSyncAt?: string;
 	companyName?: string;
 };
-
-function formatMinutesToHHMM(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
-}
 
 export default function DashboardPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
