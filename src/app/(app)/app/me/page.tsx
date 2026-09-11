@@ -5,17 +5,24 @@ import { useRouter } from "next/navigation";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
-import { upsertTemplate, upsertView, getUserFlags, setUserFlags, getView } from "@/lib/repo/firestoreRepos";
+import { upsertTemplate, upsertView, getUserFlags, setUserFlags, getView, deleteAllEntries } from "@/lib/repo/firestoreRepos";
 import { FieldType } from "@/types/domain";
 import { EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
+import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
+import { useToast } from "@/components/ui/ToastProvider";
 
 function nowIso() {
   return new Date().toISOString();
 }
 
+const DELETE_ALL_CONFIRM_TEXT = "DELETE ALL ENTRIES";
+
 export default function MyPage() {
 	  const router = useRouter();
+	  const { showToast } = useToast();
 	  const [selected, setSelected] = useState<string[]>([]);
+	  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+	  const [deletingAll, setDeletingAll] = useState(false);
 	  const catalog = useMemo(() => {
 	    // Sort catalog so it follows the same left-to-right order as the
 	    // EASA logbook layout, which makes Settings mirror the table.
@@ -109,6 +116,20 @@ export default function MyPage() {
     router.push("/app/logbook");
   }
 
+  async function handleDeleteAllEntries() {
+    setDeletingAll(true);
+    try {
+      const count = await deleteAllEntries();
+      showToast(`Deleted ${count} ${count === 1 ? "entry" : "entries"}.`, "success");
+      setShowDeleteAllConfirm(false);
+      router.push("/app/me/import");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-6">
       {/* Header */}
@@ -193,6 +214,42 @@ export default function MyPage() {
           </div>
         ))}
       </div>
+
+      {/* Danger Zone */}
+      <div
+        className="rounded-xl border p-5"
+        style={{ borderColor: "var(--status-error)", backgroundColor: "var(--bg-card)" }}
+      >
+        <div className="font-semibold mb-1" style={{ color: "var(--status-error)" }}>
+          Danger Zone
+        </div>
+        <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
+          Permanently delete every logbook entry. Use this only if you are about to re-import your
+          logbook from another source (e.g. CSV) and want to start clean. This cannot be undone.
+        </p>
+        <button
+          onClick={() => setShowDeleteAllConfirm(true)}
+          className="rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--status-error)" }}
+        >
+          Delete all logbook entries
+        </button>
+      </div>
+
+      {showDeleteAllConfirm && (
+        <TypedConfirmModal
+          title="Delete all logbook entries"
+          steps={[
+            {
+              prompt: `This permanently deletes every entry in your logbook. This cannot be undone.\n\nType "${DELETE_ALL_CONFIRM_TEXT}" to confirm:`,
+              requiredText: DELETE_ALL_CONFIRM_TEXT,
+            },
+          ]}
+          confirmLabel={deletingAll ? "Deleting..." : "Delete everything"}
+          onCancel={() => setShowDeleteAllConfirm(false)}
+          onConfirm={handleDeleteAllEntries}
+        />
+      )}
 
       {/* Save Button */}
       <div

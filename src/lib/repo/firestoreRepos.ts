@@ -217,6 +217,19 @@ export async function deleteEntry(entryId: string): Promise<void> {
   await deleteDoc(doc(db, `users/${uid}/entries/${entryId}`));
 }
 
+/**
+ * Permanently deletes every logbook entry for the current user (e.g. to
+ * start over from a re-imported source). Irreversible - callers must get
+ * explicit, typed confirmation before calling this.
+ */
+export async function deleteAllEntries(): Promise<number> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  const snaps = await getDocs(collection(db, `users/${uid}/entries`));
+  await Promise.all(snaps.docs.map((d) => deleteDoc(d.ref)));
+  return snaps.docs.length;
+}
+
 export async function getUserFlags(): Promise<{ setupComplete?: boolean }> {
   await ensureDefaultSetup();
   const uid = requireUid();
