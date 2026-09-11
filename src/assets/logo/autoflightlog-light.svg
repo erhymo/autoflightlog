@@ -12,10 +12,11 @@
 
   <rect x="5" y="5" width="90" height="90" rx="20" fill="url(#wml-bg)"/>
   <g transform="translate(5 5) scale(0.17578125)">
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#wml-blade)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(90 256 256)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(180 256 256)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(270 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#wml-blade)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(72 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(144 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(216 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#wml-blade)" transform="rotate(288 256 256)"/>
     <circle cx="256" cy="256" r="26" fill="#0B1F33"/>
     <circle cx="256" cy="256" r="13" fill="#E0F2FE"/>
   </g>

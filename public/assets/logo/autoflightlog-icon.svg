@@ -18,10 +18,11 @@
   <circle cx="256" cy="256" r="190" fill="url(#glow)"/>
 
   <g>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#blade)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#blade)" transform="rotate(90 256 256)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#blade)" transform="rotate(180 256 256)"/>
-    <path d="M256,256 C222,256 210,156 256,58 C302,156 290,256 256,256 Z" fill="url(#blade)" transform="rotate(270 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(72 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(144 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(216 256 256)"/>
+    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(288 256 256)"/>
   </g>
 
   <circle cx="256" cy="256" r="26" fill="#0B1F33"/>
