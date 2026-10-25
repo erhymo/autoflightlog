@@ -1,49 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirebaseAdmin } from "@/lib/firebase/admin";
 import { EmployerSetupError, requireIntegrationRequestByToken } from "@/lib/admin/employerSetup";
+import { jsonError } from "@/lib/auth/serverAuth";
+import { toConnectorView } from "@/lib/sync/connectorModel";
+import { findConnectorByRequestId, requireConnector, updateConnector } from "@/lib/sync/server/connectorStore";
 
 export const runtime = "nodejs";
-
-function jsonError(err: unknown) {
-  if (err instanceof EmployerSetupError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 500 });
-}
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ requestId: string }> }) {
   try {
     const { requestId } = await ctx.params;
-    const body = await req.json();
-    const { token } = body as { token: string };
+    const body = (await req.json().catch(() => ({}))) as { token?: string };
+    const { uid, ref } = await requireIntegrationRequestByToken(requestId, body.token ?? null);
 
-    const { uid } = await requireIntegrationRequestByToken(requestId, token);
-    const { db } = getFirebaseAdmin();
-
-    const existingSnap = await db
-      .collection(`users/${uid}/connectors`)
-      .where("requestId", "==", requestId)
-      .limit(1)
-      .get();
-    if (existingSnap.empty) {
-      throw new EmployerSetupError("Test the connection successfully before activating", 400);
-    }
-    const existing = existingSnap.docs[0];
-    const existingData = existing.data();
-    if (existingData.lastError) {
+    const connector = await findConnectorByRequestId(uid, requestId);
+    if (!connector || !connector.lastTestAt || connector.lastTestError) {
       throw new EmployerSetupError("Test the connection successfully before activating", 400);
     }
 
-    const updates = {
+    await updateConnector(uid, connector.id, {
       status: "active",
       autoSyncEnabled: true,
-      syncIntervalMinutes: existingData.syncIntervalMinutes ?? 12 * 60,
+      consecutiveFailures: 0,
       nextSyncAt: new Date().toISOString(),
-    };
-    await existing.ref.set(updates, { merge: true });
+    });
+    await ref.set({ status: "active" }, { merge: true });
 
-    return NextResponse.json({ connector: { ...existingData, ...updates } });
+    return NextResponse.json({ connector: toConnectorView(await requireConnector(uid, connector.id)) });
   } catch (err) {
     return jsonError(err);
   }

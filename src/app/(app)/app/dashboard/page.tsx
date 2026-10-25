@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { listEntries, listConnectors, listCertificates } from "@/lib/repo/firestoreRepos";
 import { Certificate, LogbookEntry } from "@/types/domain";
-import { calculateCurrencySummary, WindowedRequirement } from "@/lib/currency/currency";
+import type { Connector } from "@/types/integrations";
+import { calculateCurrencySummary, listAircraftTypes, WindowedRequirement } from "@/lib/currency/currency";
 import { formatMinutesToHHMM } from "@/lib/logbook/timeUnits";
 import { getCertificateStatus, CertificateUrgency } from "@/lib/certificates/certificateStatus";
 import { SEVERITY_STYLES, Severity } from "@/lib/ui/statusColors";
@@ -55,16 +56,14 @@ function requirementStatusText(req: WindowedRequirement, now: Date, formatDate: 
   return `Valid until ${formatDate(req.expiresAt)}`;
 }
 
-type ConnectorSummary = {
-	status: "inactive" | "active" | "error";
-	lastSyncAt?: string;
-	companyName?: string;
-};
+type ConnectorSummary = Pick<Connector, "status" | "lastSyncAt" | "companyName">;
 
 export default function DashboardPage() {
   const [entries, setEntries] = useState<LogbookEntry[]>([]);
 	const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
 	const [certificates, setCertificates] = useState<Certificate[]>([]);
+	// null = pooled across all types; otherwise the selected aircraft type.
+	const [currencyType, setCurrencyType] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -176,7 +175,11 @@ export default function DashboardPage() {
     { label: "Last Year", value: formatMinutesToHHMM(last365DaysMinutes), period: "365d" },
   ];
 
-	const currency = calculateCurrencySummary(entries, now);
+	// Default the recency panel to the most recently flown type, since that
+	// is the type the pilot is about to fly again.
+	const aircraftTypes = listAircraftTypes(entries);
+	const effectiveCurrencyType = currencyType === undefined ? (aircraftTypes[0] ?? null) : currencyType;
+	const currency = calculateCurrencySummary(entries, now, { aircraftType: effectiveCurrencyType });
 	const formatDate = (d: Date | null) => (d ? d.toLocaleDateString() : "-");
 	const badgeStyle = (ok: boolean) => {
 		const s = SEVERITY_STYLES[ok ? "success" : "critical"];
@@ -373,8 +376,30 @@ export default function DashboardPage() {
 							</div>
 						</div>
 					</div>
-					<div className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-						These figures are guidance only and do not filter by aircraft type/class.
+					<div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
+						{aircraftTypes.length > 0 && (
+							<label className="flex items-center gap-1.5">
+								<span>Aircraft type:</span>
+								<select
+									value={effectiveCurrencyType ?? "__all__"}
+									onChange={(e) => setCurrencyType(e.target.value === "__all__" ? null : e.target.value)}
+									className="rounded border px-1.5 py-0.5 text-[11px]"
+									style={{ borderColor: "var(--border-default)", backgroundColor: "var(--bg-card)", color: "var(--text-primary)" }}
+								>
+									{aircraftTypes.map((t) => (
+										<option key={t} value={t}>
+											{t}
+										</option>
+									))}
+									<option value="__all__">All types (pooled)</option>
+								</select>
+							</label>
+						)}
+						<span>
+							{effectiveCurrencyType
+								? `FCL.060 recency counted on ${effectiveCurrencyType} only. Guidance, not a compliance record.`
+								: "Landings on every type are pooled here; FCL.060 recency is per type. Guidance only."}
+						</span>
 					</div>
 				</div>
 

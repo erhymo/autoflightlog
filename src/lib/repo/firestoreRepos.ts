@@ -2,7 +2,11 @@ import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { migrateLegacyDurationFields } from "@/lib/logbook/timeUnits";
-import type { Certificate, KnownPlace, LogbookEntry, Template, ViewDefinition } from "@/types/domain";
+import { entryFromDoc, entryToDoc } from "@/lib/logbook/entryDoc";
+import { normalizeConnectorDoc } from "@/lib/sync/connectorModel";
+import { isSyncedEntry } from "@/lib/sync/planSync";
+import type { Certificate, KnownPlace, LogbookEntry, Template, UserFlags, ViewDefinition } from "@/types/domain";
+import type { Connector, IntegrationRequest } from "@/types/integrations";
 import {
   collection,
   deleteDoc,
@@ -34,14 +38,6 @@ function toDate(value: unknown): Date {
   return new Date(0);
 }
 
-function toIsoString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value instanceof Date) return value.toISOString();
-  const ts = value as Timestamp | undefined;
-  if (ts && typeof (ts as any).toDate === "function") return (ts as any).toDate().toISOString();
-  return new Date(0).toISOString();
-}
-
 function stripUndefined<T extends Record<string, any>>(obj: T): T {
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -66,14 +62,6 @@ function viewFromDoc(data: any): ViewDefinition {
   } as ViewDefinition;
 }
 
-function entryFromDoc(data: any): LogbookEntry {
-  return {
-    ...data,
-    createdAt: toIsoString(data.createdAt),
-    updatedAt: toIsoString(data.updatedAt),
-  } as LogbookEntry;
-}
-
 /**
  * Repairs an entry's duration fields if they still hold a pre-fix
  * decimal-hours value, and best-effort persists the repair so future
@@ -91,24 +79,6 @@ function withMigratedDurations(entry: LogbookEntry): LogbookEntry {
     });
   }
   return migrated;
-}
-
-function entryToDoc(e: LogbookEntry): Record<string, any> {
-  const base: Record<string, any> = {
-    id: e.id,
-    templateId: e.templateId,
-    values: e.values,
-    source: {
-      // Firestore does not allow `undefined` field values.
-      system: e.source?.system || "unknown",
-      ...(e.source?.connectorId ? { connectorId: e.source.connectorId } : {}),
-      ...(e.source?.externalKey ? { externalKey: e.source.externalKey } : {}),
-    },
-    createdAt: e.createdAt,
-    updatedAt: e.updatedAt,
-  };
-  if (e.manualOverrides) base.manualOverrides = e.manualOverrides;
-  return base;
 }
 
 export async function ensureDefaultSetup() {
@@ -212,10 +182,28 @@ export async function upsertEntry(e: LogbookEntry) {
   await setDoc(doc(db, `users/${uid}/entries/${e.id}`), entryToDoc(e));
 }
 
+/**
+ * Deletes one entry. If it came from an API sync, a tombstone is written to
+ * users/{uid}/syncIgnored first so the next sync run respects the deletion
+ * instead of recreating the flight (see src/lib/sync/planSync.ts).
+ */
 export async function deleteEntry(entryId: string): Promise<void> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
-  await deleteDoc(doc(db, `users/${uid}/entries/${entryId}`));
+  const ref = doc(db, `users/${uid}/entries/${entryId}`);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const entry = entryFromDoc(snap.data() as Record<string, unknown>);
+    if (isSyncedEntry(entry)) {
+      await setDoc(doc(db, `users/${uid}/syncIgnored/${entryId}`), {
+        entryId,
+        connectorId: entry.source.connectorId ?? null,
+        externalKey: entry.source.externalKey,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+  await deleteDoc(ref);
 }
 
 /**
@@ -248,55 +236,65 @@ export async function deleteAllEntries(): Promise<number> {
   return docs.length;
 }
 
-export async function getUserFlags(): Promise<{ setupComplete?: boolean }> {
+export async function getUserFlags(): Promise<UserFlags> {
   await ensureDefaultSetup();
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snap = await getDoc(doc(db, `users/${uid}/flags/main`));
-  return snap.exists() ? (snap.data() as any) : {};
+  return snap.exists() ? (snap.data() as UserFlags) : {};
 }
 
-export async function setUserFlags(flags: Record<string, any>) {
+export async function setUserFlags(flags: Partial<UserFlags>) {
   const uid = requireUid();
   const { db } = getFirebaseClient();
-  await setDoc(doc(db, `users/${uid}/flags/main`), flags, { merge: true });
+  await setDoc(doc(db, `users/${uid}/flags/main`), stripUndefined(flags), { merge: true });
 }
 
-// ---- Integrations / Connectors (Firestore-backed, previously mock/localStorage) ----
+// ---- Integrations / Connectors ----
+// Connector *configuration and sync state* is owner-readable so the UI can
+// show it straight from Firestore (and offline). Everything that changes a
+// connector, and anything involving the secret, goes through the API routes
+// in src/app/api/connectors via src/lib/api/client.ts.
 
-export async function listIntegrationRequests(): Promise<any[]> {
+export async function listIntegrationRequests(): Promise<IntegrationRequest[]> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snaps = await getDocs(collection(db, `users/${uid}/integrationRequests`));
-  return snaps.docs.map((d) => d.data());
+  return snaps.docs.map((d) => ({ ...(d.data() as IntegrationRequest), id: d.id }));
 }
 
-export async function addIntegrationRequest(req: any): Promise<void> {
+export async function addIntegrationRequest(req: IntegrationRequest): Promise<void> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   await setDoc(doc(db, `users/${uid}/integrationRequests/${req.id}`), stripUndefined(req));
 }
 
-export async function upsertConnector(connector: any): Promise<void> {
+export async function updateIntegrationRequest(requestId: string, updates: Partial<IntegrationRequest>): Promise<void> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
-  await setDoc(doc(db, `users/${uid}/connectors/${connector.id}`), stripUndefined(connector), { merge: true });
+  await setDoc(doc(db, `users/${uid}/integrationRequests/${requestId}`), stripUndefined(updates), { merge: true });
 }
 
-export async function listConnectors(): Promise<any[]> {
+export async function deleteIntegrationRequest(requestId: string): Promise<void> {
+  const uid = requireUid();
+  const { db } = getFirebaseClient();
+  await deleteDoc(doc(db, `users/${uid}/integrationRequests/${requestId}`));
+}
+
+export async function listConnectors(): Promise<Connector[]> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const snaps = await getDocs(collection(db, `users/${uid}/connectors`));
-  return snaps.docs.map((d) => d.data());
+  return snaps.docs.map((d) => normalizeConnectorDoc({ ...(d.data() as Record<string, unknown>), id: d.id }));
 }
 
-export async function getConnectorByRequestId(requestId: string): Promise<any | null> {
+export async function getConnectorByRequestId(requestId: string): Promise<Connector | null> {
   const uid = requireUid();
   const { db } = getFirebaseClient();
   const q = query(collection(db, `users/${uid}/connectors`), where("requestId", "==", requestId));
   const snaps = await getDocs(q);
   const first = snaps.docs[0];
-  return first ? first.data() : null;
+  return first ? normalizeConnectorDoc({ ...(first.data() as Record<string, unknown>), id: first.id }) : null;
 }
 
 // ---- Certificates (medical, license, ratings, etc. with an expiry date) ----

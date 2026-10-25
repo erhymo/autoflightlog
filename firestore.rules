@@ -49,6 +49,19 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // Tombstones for synced entries the pilot deleted, so the sync engine
+      // doesn't recreate them. Written by the client on delete.
+      match /syncIgnored/{entryId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Encrypted API keys/tokens for connectors. Written and read only by
+      // server-side code (Admin SDK bypasses these rules); the client never
+      // needs the secret, so deny it outright - even to the owner.
+      match /connectorSecrets/{connectorId} {
+        allow read, write: if false;
+      }
+
       // Admin-managed metadata (e.g. the `hidden` flag set from /app/admin).
       // Only ever read/written server-side via the Admin SDK, which bypasses
       // these rules — deny client access outright so a user can't read or
