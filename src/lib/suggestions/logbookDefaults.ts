@@ -1,4 +1,4 @@
-import { LogbookEntry } from "@/types/domain";
+import { LogbookEntry, UserFlags } from "@/types/domain";
 
 type Stats = { count: number; lastSeen: string };
 
@@ -13,10 +13,17 @@ function getLastSeenTs(entry: LogbookEntry): string {
   return entry.updatedAt || entry.createdAt || "";
 }
 
+/**
+ * Most-used values for a field, ranked by frequency then recency. An
+ * optional `seed` (e.g. the pilot's configured default aircraft) is
+ * prepended when the history doesn't already contain it, so a fresh
+ * logbook still gets a sensible first suggestion.
+ */
 export function getFieldSuggestions(
   entries: LogbookEntry[],
   fieldKey: string,
-  limit = 8
+  limit = 8,
+  seed?: string
 ): string[] {
   const stats = new Map<string, Stats>();
 
@@ -44,9 +51,9 @@ export function getFieldSuggestions(
     .slice(0, limit)
     .map(([value]) => value);
 
-  // Seed common helicopter type for empty/new datasets.
-  if (fieldKey === "aircraft" && !ranked.includes("AW169")) {
-    return ["AW169", ...ranked].slice(0, limit);
+  const seedValue = asNonEmptyString(seed ?? null)?.toUpperCase();
+  if (seedValue && !ranked.includes(seedValue)) {
+    return [seedValue, ...ranked].slice(0, limit);
   }
 
   return ranked;
@@ -172,19 +179,27 @@ function defaultFromRecentOrCommon(entries: LogbookEntry[], fieldKey: string): s
   return mostCommon;
 }
 
-export function getPrefillValuesForNewEntry(entries: LogbookEntry[]) {
+export type NewEntryDefaults = Pick<UserFlags, "defaultAircraft" | "defaultDeparture" | "defaultArrival">;
+
+/**
+ * Starting values for a new entry: today's date, then the pilot's most
+ * recent (or most common) aircraft/route, falling back to the defaults
+ * they set under Settings. Nothing is hardcoded here - a pilot on another
+ * type or base gets their own defaults.
+ */
+export function getPrefillValuesForNewEntry(entries: LogbookEntry[], defaults: NewEntryDefaults = {}) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const aircraft = defaultFromRecentOrCommon(entries, "aircraft") || "AW169";
+  const aircraft = defaultFromRecentOrCommon(entries, "aircraft") || asNonEmptyString(defaults.defaultAircraft ?? null)?.toUpperCase();
   const registration = defaultFromRecentOrCommon(entries, "registration");
-  const departure = defaultFromRecentOrCommon(entries, "departure") || "ENOS";
-  const arrival = defaultFromRecentOrCommon(entries, "arrival") || "ENBR";
+  const departure = defaultFromRecentOrCommon(entries, "departure") || asNonEmptyString(defaults.defaultDeparture ?? null)?.toUpperCase();
+  const arrival = defaultFromRecentOrCommon(entries, "arrival") || asNonEmptyString(defaults.defaultArrival ?? null)?.toUpperCase();
 
   return {
     date: today,
-    aircraft,
+    ...(aircraft ? { aircraft } : {}),
     ...(registration ? { registration } : {}),
-    departure,
-    arrival,
+    ...(departure ? { departure } : {}),
+    ...(arrival ? { arrival } : {}),
   };
 }

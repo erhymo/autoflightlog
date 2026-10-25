@@ -6,7 +6,7 @@ import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { buildDefaultEasaTemplate } from "@/lib/defaults/easaTemplate";
 import { buildDefaultView } from "@/lib/defaults/defaultView";
 import { upsertTemplate, upsertView, getUserFlags, setUserFlags, getView, deleteAllEntries } from "@/lib/repo/firestoreRepos";
-import { FieldType } from "@/types/domain";
+import { FieldType, UserFlags } from "@/types/domain";
 import { EASA_FIELD_ORDER } from "@/lib/layouts/easaLogbookLayout";
 import { TypedConfirmModal } from "@/components/ui/TypedConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -22,6 +22,8 @@ export default function MyPage() {
 	  const { showToast } = useToast();
 	  const [selected, setSelected] = useState<string[]>([]);
 	  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+	  const [defaults, setDefaults] = useState<Pick<UserFlags, "defaultAircraft" | "defaultDeparture" | "defaultArrival">>({});
+	  const [savingDefaults, setSavingDefaults] = useState(false);
 	  const [deletingAll, setDeletingAll] = useState(false);
 	  const catalog = useMemo(() => {
 	    // Sort catalog so it follows the same left-to-right order as the
@@ -39,6 +41,13 @@ export default function MyPage() {
 	    let cancelled = false;
 	    (async () => {
 	      const flags = await getUserFlags();
+	      if (!cancelled) {
+	        setDefaults({
+	          defaultAircraft: flags.defaultAircraft ?? "",
+	          defaultDeparture: flags.defaultDeparture ?? "",
+	          defaultArrival: flags.defaultArrival ?? "",
+	        });
+	      }
 	      // If first-time setup, start from the full default EASA layout.
 	      if (!flags.setupComplete) {
 	        const tmpl = buildDefaultEasaTemplate(nowIso());
@@ -114,6 +123,22 @@ export default function MyPage() {
     await setUserFlags({ setupComplete: true });
 
     router.push("/app/logbook");
+  }
+
+  async function saveDefaults() {
+    setSavingDefaults(true);
+    try {
+      await setUserFlags({
+        defaultAircraft: (defaults.defaultAircraft ?? "").trim().toUpperCase(),
+        defaultDeparture: (defaults.defaultDeparture ?? "").trim().toUpperCase(),
+        defaultArrival: (defaults.defaultArrival ?? "").trim().toUpperCase(),
+      });
+      showToast("Defaults saved.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), "error");
+    } finally {
+      setSavingDefaults(false);
+    }
   }
 
   async function handleDeleteAllEntries() {
@@ -213,6 +238,50 @@ export default function MyPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Defaults for new entries */}
+      <div
+        className="rounded-xl border p-5"
+        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-default)" }}
+      >
+        <div className="font-semibold mb-1" style={{ color: "var(--aviation-blue)" }}>
+          Defaults for new entries
+        </div>
+        <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
+          Used to pre-fill a new flight when your logbook has nothing to learn from yet. Once you have logged
+          flights, the most recent flight takes precedence.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {(
+            [
+              ["defaultAircraft", "Aircraft type", "e.g. AW169"],
+              ["defaultDeparture", "Home base / departure", "e.g. ENBR"],
+              ["defaultArrival", "Usual arrival", "e.g. ENBR"],
+            ] as const
+          ).map(([key, label, placeholder]) => (
+            <div key={key}>
+              <label className="block text-xs font-medium mb-1 uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
+                {label}
+              </label>
+              <input
+                value={defaults[key] ?? ""}
+                onChange={(e) => setDefaults((d) => ({ ...d, [key]: e.target.value.toUpperCase() }))}
+                placeholder={placeholder}
+                className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-primary)] px-3 py-2 text-sm focus:outline-none focus:border-[var(--aviation-blue)]"
+                style={{ color: "var(--text-primary)" }}
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={saveDefaults}
+          disabled={savingDefaults}
+          className="mt-3 rounded-lg px-4 py-2 text-sm font-medium border disabled:opacity-50 transition-colors hover:bg-[var(--bg-hover)]"
+          style={{ borderColor: "var(--aviation-blue)", color: "var(--aviation-blue)" }}
+        >
+          {savingDefaults ? "Saving..." : "Save defaults"}
+        </button>
       </div>
 
       {/* Danger Zone */}

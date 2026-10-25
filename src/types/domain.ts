@@ -4,6 +4,18 @@ export interface User {
   setupComplete?: boolean;
 }
 
+/**
+ * Per-user preferences stored in users/{uid}/flags/main. The "default*"
+ * fields seed a brand-new logbook entry before the pilot's own history
+ * exists to learn from (and remain the fallback when it doesn't help).
+ */
+export interface UserFlags {
+  setupComplete?: boolean;
+  defaultAircraft?: string;
+  defaultDeparture?: string;
+  defaultArrival?: string;
+}
+
 export interface Template {
   id: string;
   name: string;
