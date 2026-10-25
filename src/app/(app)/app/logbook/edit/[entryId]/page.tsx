@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { getEntry, upsertEntry, getTemplate, listEntries, listKnownPlaces, upsertKnownPlace } from "@/lib/repo/firestoreRepos";
-import { LogbookEntry, Template, KnownPlace } from "@/types/domain";
+import { getEntry, upsertEntry, getTemplate, listEntries, listKnownPlaces, upsertKnownPlace, getUserFlags } from "@/lib/repo/firestoreRepos";
+import { LogbookEntry, Template, KnownPlace, UserFlags } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import {
   getFieldSuggestions,
@@ -13,6 +13,7 @@ import {
   getMirroredRoleFieldKeys,
 } from "@/lib/suggestions/logbookDefaults";
 import { findDuplicateEntry } from "@/lib/duplicateDetection";
+import { isSyncedEntry } from "@/lib/sync/planSync";
 import { computeTotalTimeMinutes, formatMinutesToHHMM, parseTimeInput } from "@/lib/logbook/timeUnits";
 import { requestCurrentPosition, findNearestPlace, GeoPosition } from "@/lib/geo/geolocation";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -114,6 +115,7 @@ export default function EditEntryPage() {
   const [saving, setSaving] = useState(false);
   const [knownPlaces, setKnownPlaces] = useState<KnownPlace[]>([]);
   const [position, setPosition] = useState<GeoPosition | null>(null);
+  const [userFlags, setUserFlags] = useState<UserFlags>({});
 
 		  useEffect(() => {
 	    let cancelled = false;
@@ -125,13 +127,15 @@ export default function EditEntryPage() {
 		        // memory using sensible defaults, and only persist it if the user
 		        // presses Save.
 		        if (entryId === "new") {
-		          const [templateData, entriesData, knownPlacesData] = await Promise.all([
+		          const [templateData, entriesData, knownPlacesData, flags] = await Promise.all([
 		            getTemplate("tmpl_easa_default"),
 		            listEntries(),
 		            listKnownPlaces(),
+		            getUserFlags(),
 		          ]);
 		          if (cancelled) return;
 		          setKnownPlaces(knownPlacesData);
+		          setUserFlags(flags);
 
 		          // Ask for location once per visit to a "new entry" page - this is
 		          // what triggers the browser's permission prompt the first time.
@@ -140,7 +144,7 @@ export default function EditEntryPage() {
 		            if (!cancelled) setPosition(pos);
 		          });
 		
-		          let values = getPrefillValuesForNewEntry(entriesData);
+		          let values: LogbookEntry["values"] = getPrefillValuesForNewEntry(entriesData, flags);
 		
 		          // Optional: when coming from "Add based on last" in the logbook list,
 		          // start from the most recent entry and reset time/landing fields while
@@ -460,6 +464,7 @@ export default function EditEntryPage() {
 		    new Set<string>([...templateOrder, ...catalogOrder])
 		  );
 
+		  const isSynced = isSyncedEntry(entry);
 		  const validationWarnings = entry ? computeValidationWarnings(entry) : [];
 		  const duplicateEntry = entry
 		    ? findDuplicateEntry(allEntries, entry.values, entry.id)
@@ -578,7 +583,7 @@ export default function EditEntryPage() {
 		      const rawSuggestions =
 		        fieldKey === "arrival"
 		          ? getRouteAwareArrivalSuggestions(allEntries, String(entry.values["departure"] ?? ""), 8)
-		          : getFieldSuggestions(allEntries, fieldKey, 8);
+		          : getFieldSuggestions(allEntries, fieldKey, 8, fieldKey === "aircraft" ? userFlags.defaultAircraft : undefined);
 		      const inputLower = String(value ?? "").trim().toLowerCase();
 		      const suggestions = [...rawSuggestions].sort((a, b) => {
 		        const aLower = a.toLowerCase();
@@ -670,11 +675,11 @@ export default function EditEntryPage() {
 		            style={{ color: "var(--status-info)" }}
 		          >
 		            <Pencil size={12} strokeWidth={2} />
-		            <span>Manually edited - protected from sync</span>
+		            <span>{isSynced ? "Edited by you - the sync will not overwrite this field" : "Entered manually"}</span>
 		          </p>
 		        ) : value !== "" ? (
 		          <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
-		            Auto-filled from CSV/import or previous flights
+		            {isSynced ? "From your employer's system - updates on each sync" : "Auto-filled from import or previous flights"}
 		          </p>
 		        ) : null}
 		      </div>
@@ -687,10 +692,12 @@ export default function EditEntryPage() {
 	        {/* Header */}
 	        <div>
 	          <h1 className="text-2xl font-semibold" style={{ color: "var(--aviation-blue)" }}>
-	            Edit Entry
+	            {entryId === "new" ? "New Entry" : "Edit Entry"}
 	          </h1>
 	          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-	            Make changes to your logbook entry
+	            {isSynced
+	              ? "This flight was imported from your employer's system. Fields you change here are kept on every later sync."
+	              : "Make changes to your logbook entry"}
 	          </p>
 	          {duplicateEntry && (
 	            <Banner severity="warning" size="compact" className="mt-3">
