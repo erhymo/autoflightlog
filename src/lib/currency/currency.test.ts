@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCurrencySummary } from "./currency";
+import { calculateCurrencySummary, listAircraftTypes } from "./currency";
 import type { LogbookEntry } from "@/types/domain";
 
 function makeEntry(id: string, date: string, values: Record<string, any> = {}): LogbookEntry {
@@ -70,5 +70,36 @@ describe("calculateCurrencySummary", () => {
     const entries = [makeEntry("bad", "not-a-date", { landingsDay: 5 })];
     const summary = calculateCurrencySummary(entries, NOW);
     expect(summary.passengerLandings90.actualCount).toBe(0);
+  });
+
+  it("filters to one aircraft type when asked, matching case-insensitively", () => {
+    const entries = [
+      makeEntry("h1", "2026-08-01", { aircraft: "AW169", landingsDay: 2 }),
+      makeEntry("h2", "2026-08-02", { aircraft: "aw169", landingsDay: 1 }),
+      makeEntry("a1", "2026-08-03", { aircraft: "AS350", landingsDay: 3 }),
+    ];
+    const all = calculateCurrencySummary(entries, NOW);
+    expect(all.passengerLandings90.actualCount).toBe(6);
+    expect(all.aircraftType).toBeNull();
+
+    const aw169 = calculateCurrencySummary(entries, NOW, { aircraftType: "AW169" });
+    expect(aw169.passengerLandings90.actualCount).toBe(3);
+    expect(aw169.passengerLandings90.isMet).toBe(true);
+    expect(aw169.aircraftType).toBe("AW169");
+
+    const as350 = calculateCurrencySummary(entries, NOW, { aircraftType: "AS350" });
+    expect(as350.passengerLandings90.actualCount).toBe(3);
+  });
+});
+
+describe("listAircraftTypes", () => {
+  it("returns distinct types, most recently flown first", () => {
+    const entries = [
+      makeEntry("1", "2026-01-01", { aircraft: "AS350" }),
+      makeEntry("2", "2026-08-01", { aircraft: "aw169" }),
+      makeEntry("3", "2026-05-01", { aircraft: "AS350" }),
+      makeEntry("4", "2026-06-01", {}),
+    ];
+    expect(listAircraftTypes(entries)).toEqual(["AW169", "AS350"]);
   });
 });

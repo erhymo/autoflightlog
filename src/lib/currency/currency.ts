@@ -15,6 +15,35 @@ export interface CurrencySummary {
   nightPassengerLandings90: WindowedRequirement;
   ifrMinutes90: number;
   nightMinutes90: number;
+  /** The aircraft type the figures were filtered to, or null for all entries. */
+  aircraftType: string | null;
+}
+
+export interface CurrencyOptions {
+  /**
+   * Restrict to flights on this aircraft type (case-insensitive match on
+   * the "aircraft" field). EASA FCL.060(b) recency is per type for
+   * helicopters and per type/class for aeroplanes, so this is what makes
+   * the figure meaningful for a pilot flying more than one type.
+   */
+  aircraftType?: string | null;
+}
+
+export function normalizeAircraftType(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+/** Distinct aircraft types in the logbook, most recently flown first. */
+export function listAircraftTypes(entries: LogbookEntry[]): string[] {
+  const lastFlown = new Map<string, number>();
+  for (const e of entries) {
+    const type = normalizeAircraftType(e.values?.aircraft);
+    if (!type) continue;
+    const d = getEntryDate(e);
+    const t = d ? d.getTime() : 0;
+    if ((lastFlown.get(type) ?? -1) < t) lastFlown.set(type, t);
+  }
+  return [...lastFlown.entries()].sort((a, b) => b[1] - a[1]).map(([type]) => type);
 }
 
 function getEntryDate(entry: LogbookEntry): Date | null {
@@ -87,13 +116,23 @@ function computeRequirementFromEvents(
 }
 
 /**
- * Basic EASA-style currency helpers.
+ * EASA-style recency helpers (FCL.060(b): 3 take-offs/landings in the
+ * preceding 90 days to carry passengers, at least one of them at night for
+ * night passenger flights).
  *
  * Notes:
- * - This is intentionally a simplification (no aircraft type/class filtering).
+ * - Pass `aircraftType` to get the per-type figure the rule actually asks
+ *   for; without it, landings on every type are pooled.
  * - Counts landings from `landingsDay` and `landingsNight` fields.
  */
-export function calculateCurrencySummary(entries: LogbookEntry[], now = new Date()): CurrencySummary {
+export function calculateCurrencySummary(
+  allEntries: LogbookEntry[],
+  now = new Date(),
+  options: CurrencyOptions = {}
+): CurrencySummary {
+  const wanted = options.aircraftType ? normalizeAircraftType(options.aircraftType) : null;
+  const entries = wanted ? allEntries.filter((e) => normalizeAircraftType(e.values?.aircraft) === wanted) : allEntries;
+
   const landingsAll = [
     ...expandEvents(entries, "landingsDay"),
     ...expandEvents(entries, "landingsNight"),
@@ -105,5 +144,6 @@ export function calculateCurrencySummary(entries: LogbookEntry[], now = new Date
     nightPassengerLandings90: computeRequirementFromEvents(landingsNight, 90, 1, now),
     ifrMinutes90: sumMinutesInWindow(entries, "ifrTime", 90, now),
     nightMinutes90: sumMinutesInWindow(entries, "nightTime", 90, now),
+    aircraftType: wanted,
   };
 }
