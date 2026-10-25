@@ -96,3 +96,37 @@ describe("mapRowsToEntries", () => {
     expect(entry.values.landingsDay).toBe(1.5);
   });
 });
+
+describe("mapCSVColumns - alias precision", () => {
+  it("does not let the short alias 'to' hijack a Total column", () => {
+    const [m] = mapCSVColumns(["Total"]);
+    expect(m.fieldId).toBe("totalTime");
+  });
+
+  it("maps 'To' and 'From' as route columns, and ignores units in headers", () => {
+    const mappings = mapCSVColumns(["From", "To", "Total Time (min)", "PIC (hh:mm)", "Night"]);
+    expect(mappings.map((m) => m.fieldId)).toEqual(["departure", "arrival", "totalTime", "pic", "nightTime"]);
+  });
+
+  it("distinguishes 'Name of PIC' from 'PIC time'", () => {
+    const mappings = mapCSVColumns(["Name of PIC", "PIC time"]);
+    expect(mappings.map((m) => m.fieldId)).toEqual(["pic", "picTime"]);
+  });
+});
+
+describe("mapRowsToEntries - dates and times", () => {
+  it("keeps the calendar date for Norwegian and textual date formats", () => {
+    const rows = [{ Date: "15.01.2024" }, { Date: "15 Jan 2024" }, { Date: "2024-01-15T23:30:00Z" }];
+    const mappings = mapCSVColumns(["Date"]);
+    const entries = mapRowsToEntries(rows, mappings);
+    expect(entries.map((e) => e.values.date)).toEqual(["2024-01-15", "2024-01-15", "2024-01-15"]);
+  });
+
+  it("normalizes clock times and accepts H:MM durations", () => {
+    const rows = [{ "Departure time": "7:05", "Total Time (min)": "1:05" }];
+    const mappings = mapCSVColumns(["Departure time", "Total Time (min)"]);
+    const [entry] = mapRowsToEntries(rows, mappings);
+    expect(entry.values.departureTime).toBe("07:05");
+    expect(entry.values.totalTime).toBe(65);
+  });
+});
