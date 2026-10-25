@@ -48,6 +48,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // API responses are live data (sync status, connector state) and some
+  // carry auth headers - never serve them from cache or store them in it.
+  if (url.pathname.startsWith("/api/")) return;
+
   // Navigations: network-first, fall back to offline page.
   if (req.mode === "navigate") {
     event.respondWith(fetch(req).catch(() => caches.match(OFFLINE_URL)));

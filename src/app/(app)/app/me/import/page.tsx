@@ -19,7 +19,6 @@ type Step = "upload" | "mapping" | "review" | "complete";
 export default function ImportPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("upload");
-  const [csvHeaders, setCSVHeaders] = useState<string[]>([]);
   const [csvRows, setCSVRows] = useState<any[]>([]);
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [mappedEntries, setMappedEntries] = useState<MappedEntry[]>([]);
@@ -33,7 +32,6 @@ export default function ImportPage() {
     const content = await file.text();
     const parsed = parseCSV(content);
     
-    setCSVHeaders(parsed.headers);
     setCSVRows(parsed.rows);
     
     const autoMappings = mapCSVColumns(parsed.headers);

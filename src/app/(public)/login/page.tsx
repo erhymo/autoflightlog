@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import { useAuthUser } from "@/lib/firebase/useAuthUser";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const { user, loading } = useAuthUser();
 
@@ -62,6 +63,22 @@ export default function LoginPage() {
     }
   }
 
+  async function resetPassword() {
+    setError(null);
+    setNotice(null);
+    if (!email) {
+      setError("Enter your email above first, then press \"Forgot password\" again.");
+      return;
+    }
+    try {
+      const { auth } = getFirebaseClient();
+      await sendPasswordResetEmail(auth, email);
+      setNotice("If an account exists for that email, a password reset link has been sent.");
+    } catch (e: any) {
+      setError(e?.code === "auth/invalid-email" ? "Invalid email" : "Could not send reset email. Try again later.");
+    }
+  }
+
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6 relative"
@@ -79,6 +96,7 @@ export default function LoginPage() {
 	      >
 	        {/* Brand Lockup */}
 	        <div className="flex flex-col items-center mb-8">
+	          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, nothing for next/image to optimize */}
 	          <img
 	            src="/assets/logo/autoflightlog-icon.svg"
 	            alt="AutoFlightLog"
@@ -147,6 +165,11 @@ export default function LoginPage() {
               {error}
             </p>
           )}
+          {notice && (
+            <p className="text-xs" style={{ color: "var(--severity-success-text)" }}>
+              {notice}
+            </p>
+          )}
 
           <button
             type="submit"
@@ -162,6 +185,14 @@ export default function LoginPage() {
               ? "Create account"
               : "Continue"}
           </button>
+
+          {mode === "signin" && (
+            <p className="text-xs text-center">
+              <button type="button" className="underline" style={{ color: "var(--text-secondary)" }} onClick={resetPassword} disabled={submitting}>
+                Forgot password?
+              </button>
+            </p>
+          )}
 
           <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
             {mode === "signup" ? "Already have an account?" : "Don’t have an account?"}{" "}

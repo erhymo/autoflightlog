@@ -36,6 +36,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	            className="p-5 border-b flex items-center gap-3"
 	            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
 	          >
+	            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, nothing for next/image to optimize */}
 	            <img
 	              src="/assets/logo/autoflightlog-icon.svg"
 	              alt=""
@@ -76,6 +77,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 	          {/* Brand Lockup */}
 	          <div className="px-4 py-3 flex items-center justify-between gap-2.5">
 	            <div className="flex items-center gap-2.5">
+	              {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, nothing for next/image to optimize */}
 	              <img
 	                src="/assets/logo/autoflightlog-icon.svg"
 	                alt=""

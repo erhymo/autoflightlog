@@ -6,7 +6,7 @@ import { listEntries, getView } from "@/lib/repo/firestoreRepos";
 import { LogbookEntry, ViewDefinition } from "@/types/domain";
 import { FIELD_CATALOG } from "@/types/fieldCatalog";
 import { exportToCSV, downloadCSV, generateExportFilename } from "@/lib/csvExport";
-import { exportToPDF, downloadPDF, getPDFBase64, estimateEntriesPerPage } from "@/lib/pdfExport";
+import { exportToPDF, downloadPDF, estimateEntriesPerPage } from "@/lib/pdfExport";
 import { Banner } from "@/components/ui/Banner";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -106,8 +106,6 @@ export default function ExportPage() {
 	  	  title: "AutoFlightLog Flight Logbook",
     });
 
-    const pdfBase64 = getPDFBase64(pdf);
-    
     // Create mailto link with PDF attachment
     // Note: Most email clients don't support attachments via mailto
     // So we'll open email with instructions
