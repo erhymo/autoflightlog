@@ -1,7 +1,7 @@
 const CACHE_PREFIX = "autoflightlog";
 // Clean up caches from previous app names/versions
 const LEGACY_CACHE_PREFIXES = ["a-log"];
-const STATIC_CACHE = `${CACHE_PREFIX}-static-v1`;
+const STATIC_CACHE = `${CACHE_PREFIX}-static-v2`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime-v1`;
 const OFFLINE_URL = "/offline.html";
 

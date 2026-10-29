@@ -1,30 +1,10 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#12314F"/>
-      <stop offset="1" stop-color="#0B1F33"/>
-    </linearGradient>
-    <linearGradient id="blade" x1="256" y1="256" x2="256" y2="64" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7DD3FC"/>
-      <stop offset="1" stop-color="#0EA5E9"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="256" cy="256" r="200" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#38BDF8" stop-opacity="0.35"/>
-      <stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <circle cx="256" cy="256" r="190" fill="url(#glow)"/>
-
-  <g>
-    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)"/>
-    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(72 256 256)"/>
-    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(144 256 256)"/>
-    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(216 256 256)"/>
-    <path d="M256,256 C230,256 220,158 256,58 C292,158 282,256 256,256 Z" fill="url(#blade)" transform="rotate(288 256 256)"/>
-  </g>
-
-  <circle cx="256" cy="256" r="26" fill="#0B1F33"/>
-  <circle cx="256" cy="256" r="13" fill="#E0F2FE"/>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- AutoFlightLog mark: an "A" with an auto-loop arrow sweeping around it.
+       Two flat brand colors on a white rounded badge so it carries its own
+       surface on both light and dark backgrounds. -->
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <path d="M109,341 A170,170 0 1 1 416,314" fill="none" stroke="#0EA5E9" stroke-width="30" stroke-linecap="round"/>
+  <path d="M452,296 L400,378 L374,306 Z" fill="#0EA5E9"/>
+  <path d="M256,166 L158,396 L214,396 L256,290 L298,396 L354,396 Z" fill="#0F2A44"/>
+  <rect x="200" y="322" width="112" height="22" rx="11" fill="#FFFFFF"/>
 </svg>
